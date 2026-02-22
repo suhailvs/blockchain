@@ -1,8 +1,9 @@
-from .models import Profile
+from .models import Profile,Identity
 
 def apply_event(event):
     if event.event_type == "update_profile_image":
-        profile = Profile.objects.get(identity__public_key=event.public_key)
+        identity= Identity.objects.get(public_key=event.public_key)
+        profile, created = Profile.objects.get_or_create(identity=identity)
         profile.image_hash = event.payload["image_hash"]
         profile.save()
     # elif event.event_type == "create_listing":
