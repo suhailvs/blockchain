@@ -19,6 +19,8 @@ class Identity(models.Model):
     public_key = models.TextField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     nonce = models.BigIntegerField(default=0)  # Prevent replay attacks
+    def __str__(self):
+        return f'{self.id}, Nonce-{self.nonce}'
 
 class Profile(models.Model):
     identity = models.ForeignKey(Identity,on_delete=models.CASCADE)

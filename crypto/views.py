@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .event_engine import EventProcessor
+from .utils import EventProcessor
 from .models import Event
 @api_view(["POST"])
 def submit_event(request):

@@ -1,3 +1,5 @@
+# Crypto APP
+
 ## Generate Key Pair
 ```
 import nacl.signing
@@ -21,7 +23,7 @@ print("Public Key:", public_key_hex)
 
 login to django admin and create an Identity with: 
 
-publickey = "a5a4951a4f45b40b7c90a7e0faa4f974348c97c3aa6c63102a9363ccd48fa032"
+publickey = "4a60c48ebb57b200b9938ac1c0504c2da43494aa4f938787051371e3376aeadc"
 nonce = 0
 
 ## Sign Event Data (Client Side)
@@ -45,16 +47,16 @@ print("Signature:", signature_hex)
 ## Send to server
 
 ```
-curl -X POST http://127.0.0.1:8000/submit/ \
+curl -X POST http://127.0.0.1:8000/crypto/submit/ \
   -H "Content-Type: application/json" \
   -d '{
   "event_type": "update_profile_image",
   "payload": {
-    "image_hash":"123456",
-    "nonce": 1
+    "image_hash":"123458",
+    "nonce": 3
   },
-  "public_key": "a5a4951a4f45b40b7c90a7e0faa4f974348c97c3aa6c63102a9363ccd48fa032",
-  "signature": "be16107d66cbef1eab32c0ffea6a0e6d9cf5c11cfc40661cf3481792c1c69bf9864b25526896457b0becfb461cb78d3828ac677c9f4ccf68d47fa9ce60a26b0f",
-  "timestamp": 1700000000
+  "public_key": "4a60c48ebb57b200b9938ac1c0504c2da43494aa4f938787051371e3376aeadc",
+  "signature": "33ddab789fb68af7f51f2f8fe1332821f03d7209578aaaea183d333716d368083064490f28bcc2e324d889e06e99a11d80a6745585c0bc6cb1f8370fa1ecd30e",
+  "timestamp": 1771758151
 }'
 ```
