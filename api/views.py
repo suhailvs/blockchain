@@ -1,8 +1,8 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .utils import verify_and_add_event
-from .models import Event
-from api.consensus import broadcast_event,sign_vote,sync_blockchain
+from .utils import verify_and_add_event,verify_signature
+from .models import Event,Node
+from .consensus import broadcast_event,sign_vote,sync_blockchain,confirm_event
 
 import uuid
 @api_view(["POST"])
@@ -55,3 +55,33 @@ def get_events_after(request):
 def sync_events(request):
     sync_blockchain()
     return Response({"status": "success"})
+
+@api_view(["POST"])
+def finalize_event(request):
+    event_id = request.data["event_id"]
+    event_hash = request.data["event_hash"]
+    signature_list = request.data["signature_list"]
+    event = Event.objects.get(id=event_id)
+    if event.hash != event_hash:
+        return Response({"error": "Hash mismatch"}, status=400)
+    valid_signatures = 0
+    seen_keys = set()
+    for item in signature_list:
+        public_key = item["public_key"]
+        signature = item["signature"]
+
+        if public_key in seen_keys:
+            continue
+
+        if not Node.objects.filter(public_key=public_key):
+            # if not is_known_validator(public_key)
+            continue
+
+        if verify_signature(public_key, signature, f"{event_hash}:True"):
+            valid_signatures += 1
+            seen_keys.add(public_key)
+            
+    if valid_signatures > Node.objects.count() / 2:
+        confirm_event(event)
+
+    return Response({"status": "CONFIRMED"})
