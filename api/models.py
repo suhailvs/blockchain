@@ -16,7 +16,7 @@ class Event(models.Model):
     status = models.CharField(max_length=20, default="PENDING",choices=STATUS_CHOICES)
     
     def __str__(self):
-        return f'{self.status}:{json.dumps(self.payload)}'
+        return f'{self.status}:{str(self.id)[:5]}... {json.dumps(self.payload)}'
 
 class Identity(models.Model):
     public_key = models.TextField(unique=True)
