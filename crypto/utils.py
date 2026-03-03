@@ -74,7 +74,7 @@ def create_genesis_event():
         status="CONFIRMED"
     )
 
-def verify_and_add_event(event_data,event_id):
+def verify_and_add_event(event_data, event_id, validate_timestamp=True):
     import time
     with transaction.atomic():
         public_key = event_data["public_key"]
@@ -83,7 +83,8 @@ def verify_and_add_event(event_data,event_id):
         timestamp = int(event_data["timestamp"])
         event_type = event_data["event_type"]
         nonce = payload.get("nonce")
-        if abs(time.time() - timestamp) > 300:  # if MAX_DRIFT of timestamp is greater than 5 minutes
+        # Enforce drift checks for live submissions, but allow historical sync imports.
+        if validate_timestamp and abs(time.time() - timestamp) > 300:  # if MAX_DRIFT of timestamp is greater than 5 minutes
             raise Exception(f"Timestamp out of range, {int(time.time())}")
         
         # 1️⃣ Verify identity exists

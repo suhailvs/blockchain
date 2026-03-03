@@ -18,7 +18,7 @@ def submit_event(request):
 def validate_event(request):
     resp = {"approved": False,"signature": sign_vote(request.data["hash"])}
     try:
-        event = verify_and_add_event(request.data,request.data['event_id'])
+        event = verify_and_add_event(request.data,request.data['event_id'], validate_timestamp=False)
         resp['approved']=True
     except Exception as e:
         resp['error']=str(e)

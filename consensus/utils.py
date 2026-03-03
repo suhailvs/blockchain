@@ -111,7 +111,7 @@ def sync_blockchain():
             # 3️⃣ Process received events
             for event_data in remote_events:
                 print(remote_events)
-                if not verify_and_add_event(event_data):
+                if not verify_and_add_event(event_data, event_data['id'], validate_timestamp=False):
                     break  # stop if chain breaks
 
         except requests.RequestException:
