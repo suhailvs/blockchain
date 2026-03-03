@@ -95,12 +95,10 @@ def sign_vote(event_hash):
     message = f"FINALIZE:{event_hash}"
     private_key = SigningKey(settings.NODE_PRIVATE_KEY, encoder=HexEncoder)
     signed = private_key.sign(message.encode())
-    print('sign_vote using private_key:',settings.NODE_PRIVATE_KEY)
-    print('signature:',signed.signature.hex())
     return signed.signature.hex()
 
 def sync_blockchain():
-    from .utils import verify_and_add_event,create_genesis_event
+    from .utils import verify_and_add_event
     """
     Synchronize missing confirmed events from peers.
     """

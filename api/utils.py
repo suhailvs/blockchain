@@ -97,6 +97,8 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
 
         if is_sync_blockchain:
             # TODO: need to check EventVote Signatures
+            # look views.finalize_event
+            # signature_list
             new_height = event_data["height"]
             event_hash = event_data["hash"]
             new_status = "CONFIRMED"
