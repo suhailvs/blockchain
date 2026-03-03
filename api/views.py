@@ -61,7 +61,10 @@ def finalize_event(request):
     event_id = request.data["event_id"]
     event_hash = request.data["event_hash"]
     signature_list = request.data["signature_list"]
-    event = Event.objects.get(id=event_id)
+    try:
+        event = Event.objects.get(id=event_id)
+    except Event.DoesNotExist:
+        return Response({"error": "Event not found"}, status=404)
     if event.hash != event_hash:
         return Response({"error": "Hash mismatch"}, status=400)
     valid_signatures = 0

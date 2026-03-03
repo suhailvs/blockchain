@@ -63,11 +63,12 @@ def broadcast_finalization(event):
     }
     for peer in get_peers():
         try:
-            requests.post(
+            response = requests.post(
                 f"{peer.url}/api/finalize-event/",
                 json=data,
                 timeout=3
             )
+            print(peer.url,response.json())
         except Exception as e:
             print('Broadcast error.',e)
             continue
