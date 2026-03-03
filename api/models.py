@@ -6,19 +6,15 @@ class Event(models.Model):
         ('PENDING', 'PENDING'),
         ('CONFIRMED', 'CONFIRMED'),]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    height = models.IntegerField()
     event_type = models.CharField(max_length=100)
     payload = models.JSONField()
     public_key = models.TextField()
     signature = models.TextField()
-    timestamp = models.BigIntegerField()
-    created_at = models.DateTimeField(auto_now_add=True)
     hash = models.CharField(max_length=64, unique=True)
     previous_hash = models.CharField(max_length=64, null=True, blank=True)
     status = models.CharField(max_length=20, default="PENDING",choices=STATUS_CHOICES)
-    class Meta:
-        indexes = [
-            models.Index(fields=["timestamp"]),
-        ]
+    
     def __str__(self):
         return json.dumps(self.payload)
 
@@ -49,6 +45,8 @@ class EventVote(models.Model):
     node_id = models.CharField(max_length=100)
     signature = models.TextField()
     approved = models.BooleanField()
+    def __str__(self):
+        return f'{self.node_id}:{json.dumps(self.event.payload)}'
 
 class Node(models.Model):
     node_id = models.CharField(max_length=100, unique=True)

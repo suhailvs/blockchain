@@ -16,13 +16,12 @@ def submit_event(request):
 
 @api_view(["POST"])
 def validate_event(request):
-    resp = {"approved": False,"signature": sign_vote(request.data["hash"])}
     try:
-        event = verify_and_add_event(request.data,request.data['event_id'], validate_timestamp=False)
-        resp['approved']=True
+        verify_and_add_event(request.data,request.data['event_id'])
+        return Response({"approved": True,"signature": sign_vote(request.data["hash"],True)})
+    
     except Exception as e:
-        resp['error']=str(e)
-    return Response(resp)
+        return Response({"approved": True,"error":str(e)})
 
 @api_view(["GET"])
 def get_events_after(request):
@@ -34,17 +33,17 @@ def get_events_after(request):
     except Event.DoesNotExist:
         return Response({"error": "hash not found"}, status=404)
     events = Event.objects.filter(
-        timestamp__gt=last_event.timestamp,
+        height__gt=last_event.height,
         status="CONFIRMED"
-    ).order_by("timestamp")
+    ).order_by("height")
     data = [
         {
             "id": str(e.id),
+            "height":e.height,
             "event_type": e.event_type,
             "payload": e.payload,
             "public_key": e.public_key,
             "signature": e.signature,
-            "timestamp": e.timestamp,
             "previous_hash": e.previous_hash,
             "hash": e.hash,
         }

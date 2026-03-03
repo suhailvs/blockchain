@@ -20,7 +20,6 @@ def broadcast_event(event):
         "payload": event.payload,
         "public_key": event.public_key,
         "signature": event.signature,
-        "timestamp": event.timestamp,
         "hash": event.hash,
         "previous_hash": event.previous_hash,
     }
@@ -87,13 +86,13 @@ def sync_blockchain():
     """
     last_event = Event.objects.filter(
         status="CONFIRMED"
-    ).order_by("-timestamp").first()
+    ).order_by("-height").first()
 
     if not last_event:
         last_event=create_genesis_event()
     after_hash = last_event.hash
 
-    # 2️⃣ Ask each peer
+    # Ask each peer
     peers = Node.objects.exclude(node_id=settings.LOCAL_NODE_ID)
 
     for peer in peers:
@@ -107,14 +106,12 @@ def sync_blockchain():
                 continue
 
             remote_events = response.json().get("events", [])
-            print(remote_events,'after_hash:',after_hash)
-            # 3️⃣ Process received events
+            # Process received events
             for event_data in remote_events:
                 print(remote_events)
                 if not verify_and_add_event(
                     event_data,
                     event_data['id'],
-                    validate_timestamp=False,
                     mark_confirmed=True,
                 ):
                     break  # stop if chain breaks

@@ -5,12 +5,12 @@ from django.conf import settings
 import json
 import hashlib
 
-def calculate_event_hash(event_id,event):
+def calculate_event_hash(event_id,event, height=0):
     data = json.dumps({
         "id": str(event_id),
         "event_type": event['event_type'],
         "payload": event['payload'],
-        "timestamp": event['timestamp'],
+        "height": height,
         "public_key": event['public_key'],
         "previous_hash": event['previous_hash'],
     }, sort_keys=True)
@@ -43,17 +43,15 @@ def apply_event(event):
 
 
 def create_genesis_event():
-    # ./manage.py shell < t.py
-    from .utils import calculate_event_hash
     if Event.objects.exists(): 
         print('Event Exists')
         return None
     GENESIS_ID=1
     event_data = {
         "id": str(GENESIS_ID),
+        "height":0,
         "event_type": "GENESIS",
         "payload": {"message": "Initial event"},
-        "timestamp": 0,
         "public_key": "SYSTEM",
         "previous_hash": "0" * 64,
     }
@@ -62,54 +60,50 @@ def create_genesis_event():
     print('Event Created')
     return Event.objects.create(
         id=GENESIS_ID,
-        event_type="GENESIS",
+        height=event_data['height'],
+        event_type=event_data['event_type'],
         payload=event_data["payload"],
-        public_key="SYSTEM",
+        public_key=event_data['public_key'],
         signature="GENESIS",
-        timestamp=0,
-        previous_hash="0" * 64,
+        previous_hash=event_data['previous_hash'],
         hash=event_hash,
         status="CONFIRMED"
     )
 
-def verify_and_add_event(event_data, event_id, validate_timestamp=True, mark_confirmed=False):
+def verify_and_add_event(event_data, event_id, mark_confirmed=False):
     import time
     with transaction.atomic():
         public_key = event_data["public_key"]
         signature = event_data["signature"]
         payload = event_data["payload"]
-        timestamp = int(event_data["timestamp"])
         event_type = event_data["event_type"]
         nonce = payload.get("nonce")
-        # Enforce drift checks for live submissions, but allow historical sync imports.
-        if validate_timestamp and abs(time.time() - timestamp) > 300:  # if MAX_DRIFT of timestamp is greater than 5 minutes
-            raise Exception(f"Timestamp out of range, {int(time.time())}")
-        
-        # 1️⃣ Verify identity exists
+        # Verify identity exists
         identity = Identity.objects.select_for_update().get(public_key=public_key)
-        # 2️⃣ Prevent replay attack
+        # Prevent replay attack
         if nonce <= identity.nonce:
             raise Exception("Replay attack detected")
 
-        # 3️⃣ Verify signature
+        # Verify signature
         if not verify_signature(public_key, signature, payload):
             raise Exception("Invalid signature")
         last_event = Event.objects.filter(
             status="CONFIRMED"
-        ).order_by("-timestamp").first()
+        ).order_by("-height").first()
+        new_height = last_event.height + 1 if last_event else 0
         previous_hash = last_event.hash if last_event else "0" * 64
-        event_hash = calculate_event_hash(event_id,event_data)
+        event_hash = calculate_event_hash(event_id,event_data,new_height)
 
         if event_data["previous_hash"] != previous_hash:
             raise Exception("Previous Hash doesn't match")
-        # 4️⃣ Store immutable event
+        # Store immutable event
         event = Event.objects.create(
             id=event_id,
+            height=new_height,
             event_type=event_type,
             payload=payload,
             public_key=public_key,
             signature=signature,
-            timestamp=timestamp,
             previous_hash=previous_hash,
             hash=event_hash,
             status="CONFIRMED" if mark_confirmed else "PENDING",
@@ -124,7 +118,7 @@ def verify_and_add_event(event_data, event_id, validate_timestamp=True, mark_con
 
         
         apply_event(event)
-        # 6️⃣ Update nonce
+        # Update nonce
         identity.nonce = nonce
         identity.save()
 
