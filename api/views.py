@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .utils import verify_and_add_event, verify_signature, calculate_event_hash
+from .utils import verify_and_add_event, verify_signature
 from .models import Event,Node
 from .consensus import broadcast_event,sign_vote,sync_blockchain,confirm_event
 

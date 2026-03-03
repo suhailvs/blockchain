@@ -5,7 +5,7 @@ from django.conf import settings
 import json
 import hashlib
 
-def calculate_event_hash(event_id,event, height=0):
+def calculate_event_hash(event_id,event, height):
     data = json.dumps({
         "id": str(event_id),
         "event_type": event['event_type'],
@@ -59,7 +59,7 @@ def create_genesis_event():
         "previous_hash": "0" * 64,
     }
 
-    event_hash = calculate_event_hash(event_data['id'],event_data)
+    event_hash = calculate_event_hash(event_data['id'],event_data,height=event_data['height'])
     print('Event Created')
     return Event.objects.create(
         id=GENESIS_ID,
@@ -99,12 +99,17 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
             raise Exception("Previous Hash doesn't match")
 
         if is_sync_blockchain:
+            # TODO: need to check EventVote Signatures
             new_height = event_data["height"]
             event_hash = event_data["hash"]
             new_status = "CONFIRMED"
         else:
-            new_height = None
-            event_hash = calculate_event_hash(event_id,event_data)
+            last_event = Event.objects.filter(
+                status="CONFIRMED"
+            ).order_by("-height").first()
+            new_height = last_event.height + 1
+            
+            event_hash = calculate_event_hash(event_id,event_data,height=new_height)
             new_status = "PENDING"
 
         # Store immutable event

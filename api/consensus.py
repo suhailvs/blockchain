@@ -73,18 +73,11 @@ def broadcast_finalization(event):
             print('Broadcast error.',e)
             continue
 def confirm_event(event):
-    from .utils import calculate_event_hash
-    last_event = Event.objects.filter(
-        status="CONFIRMED"
-    ).order_by("-height").first()
-    new_height = last_event.height + 1 if last_event else 0
-    event_data = {"event_type":event.event_type,"payload":event.payload,
-        "public_key":event.public_key, "previous_hash":event.previous_hash}
-    event_hash = calculate_event_hash(event.id,event_data,new_height)
-
-    event.hash = event_hash
-    event.height = new_height
-    event.status = "CONFIRMED"
+    if Event.objects.filter(height=event.height, status="CONFIRMED").exists():
+        # reject_this_event
+        event.status = "REJECTED"
+    else:
+        event.status = "CONFIRMED"
     event.save()
     apply_event(event)
 

@@ -4,9 +4,10 @@ from django.db import models
 class Event(models.Model):
     STATUS_CHOICES = [
         ('PENDING', 'PENDING'),
-        ('CONFIRMED', 'CONFIRMED'),]
+        ('CONFIRMED', 'CONFIRMED'),
+        ('REJECTED','REJECTED')]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    height = models.IntegerField(null=True, blank=True, unique=True)
+    height = models.IntegerField(null=True, blank=True)
     event_type = models.CharField(max_length=100)
     payload = models.JSONField()
     public_key = models.TextField()
@@ -14,7 +15,13 @@ class Event(models.Model):
     hash = models.CharField(max_length=64, unique=True)
     previous_hash = models.CharField(max_length=64, null=True, blank=True)
     status = models.CharField(max_length=20, default="PENDING",choices=STATUS_CHOICES)
-    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["height"],
+                condition=models.Q(status="CONFIRMED"),
+                name="unique_confirmed_height"
+            )]
     def __str__(self):
         return f'{self.status}:{str(self.id)[:5]}... {json.dumps(self.payload)}'
 
