@@ -1,7 +1,7 @@
 import requests
 from .models import Node, EventVote
 from django.conf import settings
-from crypto.models import Identity,Profile
+from crypto.models import Identity,Profile, Event
 
 def apply_event(event):
     if event.event_type == "update_profile_image":
@@ -77,3 +77,42 @@ def sign_vote(event_hash, approved):
     signature = private_key.sign(message)
 
     return signature.hex()
+
+
+
+def sync_blockchain():
+    from crypto.utils import verify_and_add_event,create_genesis_event
+    """
+    Synchronize missing confirmed events from peers.
+    """
+    last_event = Event.objects.filter(
+        status="CONFIRMED"
+    ).order_by("-timestamp").first()
+
+    if not last_event:
+        last_event=create_genesis_event()
+    after_hash = last_event.hash
+
+    # 2️⃣ Ask each peer
+    peers = Node.objects.exclude(node_id=settings.LOCAL_NODE_ID)
+
+    for peer in peers:
+        try:
+            response = requests.get(
+                f"{peer.url}/api/events/sync/",
+                params={"after_hash": after_hash},
+                timeout=5
+            )
+
+            if response.status_code != 200:
+                continue
+
+            remote_events = response.json().get("events", [])
+
+            # 3️⃣ Process received events
+            for event_data in remote_events:
+                if not verify_and_add_event(event_data):
+                    break  # stop if chain breaks
+
+        except requests.RequestException:
+            continue
