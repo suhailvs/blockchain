@@ -17,9 +17,9 @@ uncomment `generate_signature(xx..)` in `t.py`, then run:
 $ python t.py
 ```
 
-## Sync Events
+## Sync Blockchain
 
-http://localhost:8001/api/events/sync/
+http://localhost:8001/api/sync/
 
 ## Send to server
 

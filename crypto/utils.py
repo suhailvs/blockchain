@@ -74,7 +74,7 @@ def create_genesis_event():
         status="CONFIRMED"
     )
 
-def verify_and_add_event(event_data, event_id, validate_timestamp=True):
+def verify_and_add_event(event_data, event_id, validate_timestamp=True, mark_confirmed=False):
     import time
     with transaction.atomic():
         public_key = event_data["public_key"]
@@ -113,7 +113,8 @@ def verify_and_add_event(event_data, event_id, validate_timestamp=True):
             signature=signature,
             timestamp=timestamp,
             previous_hash=previous_hash,
-            hash=event_hash
+            hash=event_hash,
+            status="CONFIRMED" if mark_confirmed else "PENDING",
         )
         approved = True
         EventVote.objects.create(
