@@ -61,15 +61,15 @@ def broadcast_finalization(event):
             } for v in event.eventvote_set.all()
         ]
     }
-
     for peer in get_peers():
         try:
             requests.post(
-                f"{peer}/api/finalize-event/",
+                f"{peer.url}/api/finalize-event/",
                 json=data,
                 timeout=3
             )
-        except Exception:
+        except Exception as e:
+            print('Broadcast error.',e)
             continue
 def confirm_event(event):
     from .utils import calculate_event_hash
