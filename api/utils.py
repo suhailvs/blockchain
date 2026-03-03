@@ -19,21 +19,18 @@ def calculate_event_hash(event_id,event, height):
 
 
 def verify_signature(public_key_hex, signature_hex, payload,vote=False):
-    import nacl.signing
-    import nacl.encoding
-    import json
+    from nacl.encoding import HexEncoder
+    from nacl.signing import VerifyKey
     try:
-        verify_key = nacl.signing.VerifyKey(
-            public_key_hex,
-            encoder=nacl.encoding.HexEncoder
-        )
+        public_key = VerifyKey(public_key_hex,encoder=HexEncoder)
         if vote:
-            message = payload.encode()
+            message = payload
         else:
-            message = json.dumps(payload, sort_keys=True).encode()
-        verify_key.verify(message, bytes.fromhex(signature_hex))
+            message = json.dumps(payload, sort_keys=True)
+        public_key.verify(message.encode(), bytes.fromhex(signature_hex))
         return True
-    except Exception:
+    except Exception as e:
+        print(e)
         return False
 
     

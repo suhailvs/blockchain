@@ -13,8 +13,6 @@ def apply_event(event):
         profile.image_hash = event.payload["image_hash"]
         profile.save()
 
-
-
 def broadcast_event(event):
     event_data = {
         "event_id": str(event.id),
@@ -34,7 +32,6 @@ def broadcast_event(event):
             )
             if response.status_code == 200:
                 data = response.json()
-
                 EventVote.objects.update_or_create(
                     event=event,
                     node_id=peer.node_id,
@@ -43,11 +40,10 @@ def broadcast_event(event):
                         "signature": data.get("signature", "")
                     }
                 )
-
                 # Check majority after each vote
                 check_majority(event)
         except requests.RequestException:
-            # Node unreachable → ignore for now
+            # Node unreachable, ignore for now
             continue
 
 def broadcast_finalization(event):
@@ -93,21 +89,15 @@ def check_majority(event):
         confirm_event(event)
         broadcast_finalization(event)
     
-
-
 def sign_vote(event_hash):
-    import nacl.signing
-    import nacl.encoding
-    message = f"FINALIZE:{event_hash}".encode()
-    private_key_hex = settings.NODE_PRIVATE_KEY
-    private_key = nacl.signing.SigningKey(
-        private_key_hex,
-        encoder=nacl.encoding.HexEncoder
-    )
-    signature = private_key.sign(message)
-    return signature.signature.hex()
-
-
+    from nacl.encoding import HexEncoder
+    from nacl.signing import SigningKey
+    message = f"FINALIZE:{event_hash}"
+    private_key = SigningKey(settings.NODE_PRIVATE_KEY, encoder=HexEncoder)
+    signed = private_key.sign(message.encode())
+    print('sign_vote using private_key:',settings.NODE_PRIVATE_KEY)
+    print('signature:',signed.signature.hex())
+    return signed.signature.hex()
 
 def sync_blockchain():
     from .utils import verify_and_add_event,create_genesis_event
