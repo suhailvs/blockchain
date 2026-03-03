@@ -18,7 +18,7 @@ def calculate_event_hash(event_id,event, height=0):
     return hashlib.sha256(data.encode()).hexdigest()
 
 
-def verify_signature(public_key_hex, signature_hex, payload_dict):
+def verify_signature(public_key_hex, signature_hex, payload,vote=False):
     import nacl.signing
     import nacl.encoding
     import json
@@ -27,12 +27,15 @@ def verify_signature(public_key_hex, signature_hex, payload_dict):
             public_key_hex,
             encoder=nacl.encoding.HexEncoder
         )
-
-        message = json.dumps(payload_dict, sort_keys=True).encode()
+        if vote:
+            message = payload.encode()
+        else:
+            message = json.dumps(payload, sort_keys=True).encode()
         verify_key.verify(message, bytes.fromhex(signature_hex))
         return True
     except Exception:
         return False
+
     
 def apply_event(event):
     if event.event_type == "update_profile_image":

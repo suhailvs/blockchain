@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .utils import verify_and_add_event,verify_signature
+from .utils import verify_and_add_event, verify_signature, calculate_event_hash
 from .models import Event,Node
 from .consensus import broadcast_event,sign_vote,sync_blockchain,confirm_event
 
@@ -76,15 +76,17 @@ def finalize_event(request):
         if public_key in seen_keys:
             continue
 
-        if not Node.objects.filter(public_key=public_key):
+        if not Node.objects.filter(public_key=public_key).exists():
             # if not is_known_validator(public_key)
             continue
 
-        if verify_signature(public_key, signature, f"{event_hash}:True"):
+        if verify_signature(public_key, signature, f"{event_hash}:True",vote=True):
             valid_signatures += 1
             seen_keys.add(public_key)
-            
-    if valid_signatures > Node.objects.count() / 2:
-        confirm_event(event)
 
-    return Response({"status": "CONFIRMED"})
+    if valid_signatures > Node.objects.count() / 2:
+        if event.status != "CONFIRMED":
+            confirm_event(event)
+        return Response({"status": "CONFIRMED"})
+
+    return Response({"status": "PENDING", "valid_signatures": valid_signatures}, status=202)
