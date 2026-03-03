@@ -1,8 +1,8 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .utils import verify_and_add_event,broadcast_event
+from .utils import verify_and_add_event
 from .models import Event
-from consensus.utils import sign_vote,sync_blockchain
+from api.consensus import broadcast_event,sign_vote,sync_blockchain
 
 import uuid
 @api_view(["POST"])

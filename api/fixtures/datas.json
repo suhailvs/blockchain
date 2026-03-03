@@ -1,6 +1,24 @@
 [
 {
-    "model": "crypto.identity",
+    "model": "auth.user",
+    "pk": 1,
+    "fields": {
+        "password": "pbkdf2_sha256$1200000$ZYY8r3U3lvqIXYUJv2srlK$oKqRjrz8MUbdBhCFL7Ocj12XouikTbwicfanPK6HQ6o=",
+        "last_login": null,
+        "is_superuser": true,
+        "username": "a",
+        "first_name": "",
+        "last_name": "",
+        "email": "",
+        "is_staff": true,
+        "is_active": true,
+        "date_joined": "2026-03-03T05:46:37.475Z",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "api.identity",
     "pk": 1,
     "fields": {
         "public_key": "b75ec7154c3f830b093e87c7b8145db809c63e5890b3964e83bdb5a26b5db58d",
@@ -9,7 +27,7 @@
     }
 },
 {
-    "model": "crypto.keypair",
+    "model": "api.keypair",
     "pk": 1,
     "fields": {
         "public_key": "154de7272870937173ff923443ddb16f581705ee7a97c98ee6692d4b750e2960",
@@ -18,7 +36,7 @@
     }
 },
 {
-    "model": "crypto.keypair",
+    "model": "api.keypair",
     "pk": 2,
     "fields": {
         "public_key": "32b1d406d7d4d09c4c43187616794c696982ca41acbc8c51c19345c6185046c7",
@@ -27,7 +45,7 @@
     }
 },
 {
-    "model": "crypto.keypair",
+    "model": "api.keypair",
     "pk": 3,
     "fields": {
         "public_key": "b0fd5c5caee18e60adc577bdf608244f626f4758afe069d3972248de2c2702b5",
@@ -36,7 +54,7 @@
     }
 },
 {
-    "model": "crypto.keypair",
+    "model": "api.keypair",
     "pk": 4,
     "fields": {
         "public_key": "b75ec7154c3f830b093e87c7b8145db809c63e5890b3964e83bdb5a26b5db58d",
@@ -45,7 +63,7 @@
     }
 },
 {
-    "model": "consensus.node",
+    "model": "api.node",
     "pk": 1,
     "fields": {
         "node_id": "localhost8000",
@@ -54,7 +72,7 @@
     }
 },
 {
-    "model": "consensus.node",
+    "model": "api.node",
     "pk": 2,
     "fields": {
         "node_id": "localhost8001",
@@ -63,7 +81,7 @@
     }
 },
 {
-    "model": "consensus.node",
+    "model": "api.node",
     "pk": 3,
     "fields": {
         "node_id": "localhost8002",

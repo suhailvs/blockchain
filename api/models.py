@@ -42,3 +42,17 @@ class KeyPair(models.Model):
     note = models.CharField(max_length=50, blank=True)
     def __str__(self):
         return f'{self.note}:{self.public_key[:5]}...'
+
+
+class EventVote(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    node_id = models.CharField(max_length=100)
+    signature = models.TextField()
+    approved = models.BooleanField()
+
+class Node(models.Model):
+    node_id = models.CharField(max_length=100, unique=True)
+    public_key = models.TextField()
+    url = models.URLField()
+    def __str__(self):
+        return self.node_id

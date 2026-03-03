@@ -30,7 +30,7 @@ def generate_signature(private_key_hex):
 
 def create_genesis_event_using_utils():
     # ./manage.py shell < t.py
-    from crypto.utils import create_genesis_event
+    from api.utils import create_genesis_event
     create_genesis_event()
 
 # generate_keys()

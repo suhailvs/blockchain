@@ -40,8 +40,7 @@ INSTALLED_APPS = [
     # custom apps
     'rest_framework',
     # my apps
-    'crypto',
-    'consensus'
+    'api'
 ]
 
 MIDDLEWARE = [

@@ -1,7 +1,6 @@
 from django.db import transaction
-from .models import Event, Identity,Profile
-from consensus.utils import broadcast_event,sign_vote
-from consensus.models import EventVote
+from .models import Event, Identity,Profile,EventVote
+from .consensus import sign_vote
 from django.conf import settings
 import json
 import hashlib
@@ -45,8 +44,7 @@ def apply_event(event):
 
 def create_genesis_event():
     # ./manage.py shell < t.py
-    from crypto.utils import calculate_event_hash
-    from crypto.models import Event
+    from .utils import calculate_event_hash
     if Event.objects.exists(): 
         print('Event Exists')
         return None
@@ -131,63 +129,3 @@ def verify_and_add_event(event_data, event_id, validate_timestamp=True, mark_con
         identity.save()
 
         return event
-"""
-class EventProcessor:
-
-    @staticmethod
-    @transaction.atomic
-    def process_event(event_data,event_id):
-        import time
-        public_key = event_data["public_key"]
-        signature = event_data["signature"]
-        payload = event_data["payload"]
-        timestamp = int(event_data["timestamp"])
-        event_type = event_data["event_type"]
-        nonce = payload.get("nonce")
-        if abs(time.time() - timestamp) > 300:  # if MAX_DRIFT of timestamp is greater than 5 minutes
-            raise Exception(f"Timestamp out of range, {time.time()}")
-        
-        # 1️⃣ Verify identity exists
-        identity = Identity.objects.select_for_update().get(public_key=public_key)
-        # 2️⃣ Prevent replay attack
-        if nonce <= identity.nonce:
-            raise Exception("Replay attack detected")
-
-        # 3️⃣ Verify signature
-        if not verify_signature(public_key, signature, payload):
-            raise Exception("Invalid signature")
-        last_event = Event.objects.filter(
-            status="CONFIRMED"
-        ).order_by("-timestamp").first()
-        previous_hash = last_event.hash if last_event else "0" * 64
-        event_hash = calculate_event_hash(event_id,event_data)
-
-        if event_data["previous_hash"] != previous_hash:
-            raise Exception("Previous Hash doesn't match")
-        # 4️⃣ Store immutable event
-        event = Event.objects.create(
-            id=event_id,
-            event_type=event_type,
-            payload=payload,
-            public_key=public_key,
-            signature=signature,
-            timestamp=timestamp,
-            previous_hash=previous_hash,
-            hash=event_hash
-        )
-        approved = True
-        EventVote.objects.create(
-            event=event,
-            node_id=settings.LOCAL_NODE_ID,
-            approved=approved,
-            signature=sign_vote(event.hash,approved)
-        )
-
-        
-        apply_event(event)
-        # 6️⃣ Update nonce
-        identity.nonce = nonce
-        identity.save()
-
-        return event
-"""

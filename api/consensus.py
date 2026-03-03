@@ -1,7 +1,7 @@
 import requests
 from .models import Node, EventVote
 from django.conf import settings
-from crypto.models import Identity,Profile, Event
+from .models import Identity,Profile, Event
 
 def apply_event(event):
     if event.event_type == "update_profile_image":
@@ -81,7 +81,7 @@ def sign_vote(event_hash, approved):
 
 
 def sync_blockchain():
-    from crypto.utils import verify_and_add_event,create_genesis_event
+    from .utils import verify_and_add_event,create_genesis_event
     """
     Synchronize missing confirmed events from peers.
     """
