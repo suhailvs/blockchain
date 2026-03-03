@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
-
+from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,10 +20,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-%z!t=y+=ct)40u4@h@hd8oud2pddut2^$06x#qs4ss5$rw7b&7'
-
+SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config("DEBUG", cast=bool)
 
 ALLOWED_HOSTS = []
 
@@ -119,5 +118,5 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-NODE_PRIVATE_KEY='ca349af765a4d88b426f95262c2f67ee7ade472feae265d3a791fef52840b614'
-LOCAL_NODE_ID='localhost8000'
+NODE_PRIVATE_KEY=config("NODE_PRIVATE_KEY")
+LOCAL_NODE_ID=config("LOCAL_NODE_ID")
