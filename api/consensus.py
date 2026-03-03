@@ -13,7 +13,7 @@ def apply_event(event):
 
 
 def broadcast_event(event):
-    peers = Node.objects.exclude(id=settings.LOCAL_NODE_ID)
+    peers = Node.objects.exclude(node_id=settings.LOCAL_NODE_ID)
     event_data = {
         "event_id": str(event.id),
         "event_type": event.event_type,
@@ -49,6 +49,10 @@ def broadcast_event(event):
             continue
 
 def check_majority(event):
+    from .utils import calculate_event_hash
+    if event.status == "CONFIRMED":
+        return
+
     total_nodes = Node.objects.count()
     
     approvals = EventVote.objects.filter(
@@ -57,6 +61,16 @@ def check_majority(event):
     ).count()
     
     if approvals > total_nodes / 2:
+        last_event = Event.objects.filter(
+            status="CONFIRMED"
+        ).order_by("-height").first()
+        new_height = last_event.height + 1 if last_event else 0
+        event_data = {"event_type":event.event_type,"payload":event.payload,
+            "public_key":event.public_key, "previous_hash":event.previous_hash}
+        event_hash = calculate_event_hash(event.id,event_data,new_height)
+
+        event.hash = event_hash
+        event.height = new_height
         event.status = "CONFIRMED"
         event.save()
         apply_event(event)
@@ -88,13 +102,13 @@ def sync_blockchain():
         status="CONFIRMED"
     ).order_by("-height").first()
 
-    if not last_event:
-        last_event=create_genesis_event()
+    # if not last_event:
+    #     last_event=create_genesis_event()
     after_hash = last_event.hash
 
     # Ask each peer
     peers = Node.objects.exclude(node_id=settings.LOCAL_NODE_ID)
-
+    events_synced = 0
     for peer in peers:
         try:
             response = requests.get(
@@ -108,14 +122,15 @@ def sync_blockchain():
             remote_events = response.json().get("events", [])
             # Process received events
             for event_data in remote_events:
-                print(remote_events)
                 if not verify_and_add_event(
                     event_data,
                     event_data['id'],
-                    mark_confirmed=True,
+                    is_sync_blockchain=True,
                 ):
                     break  # stop if chain breaks
+                else:events_synced+=1
 
         except requests.RequestException:
             print('peer error:',peer.url)
             continue
+    print('Events synced:',events_synced)

@@ -70,13 +70,13 @@ def create_genesis_event():
         status="CONFIRMED"
     )
 
-def verify_and_add_event(event_data, event_id, mark_confirmed=False):
-    import time
+def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
     with transaction.atomic():
         public_key = event_data["public_key"]
         signature = event_data["signature"]
         payload = event_data["payload"]
         event_type = event_data["event_type"]
+        previous_hash = event_data["previous_hash"]
         nonce = payload.get("nonce")
         # Verify identity exists
         identity = Identity.objects.select_for_update().get(public_key=public_key)
@@ -90,12 +90,20 @@ def verify_and_add_event(event_data, event_id, mark_confirmed=False):
         last_event = Event.objects.filter(
             status="CONFIRMED"
         ).order_by("-height").first()
-        new_height = last_event.height + 1 if last_event else 0
-        previous_hash = last_event.hash if last_event else "0" * 64
-        event_hash = calculate_event_hash(event_id,event_data,new_height)
+        expected_previous_hash = last_event.hash if last_event else "0" * 64
 
-        if event_data["previous_hash"] != previous_hash:
+        if event_data["previous_hash"] != expected_previous_hash:
             raise Exception("Previous Hash doesn't match")
+
+        if is_sync_blockchain:
+            new_height = event_data["height"]
+            event_hash = event_data["hash"]
+            new_status = "CONFIRMED"
+        else:
+            new_height = None
+            event_hash = calculate_event_hash(event_id,event_data)
+            new_status = "PENDING"
+
         # Store immutable event
         event = Event.objects.create(
             id=event_id,
@@ -106,20 +114,24 @@ def verify_and_add_event(event_data, event_id, mark_confirmed=False):
             signature=signature,
             previous_hash=previous_hash,
             hash=event_hash,
-            status="CONFIRMED" if mark_confirmed else "PENDING",
-        )
-        approved = True
-        EventVote.objects.create(
-            event=event,
-            node_id=settings.LOCAL_NODE_ID,
-            approved=approved,
-            signature=sign_vote(event.hash,approved)
+            status=new_status,
         )
 
+        if is_sync_blockchain:
+            apply_event(event)
+        else:
+            # do not create votes while sync blockchain
+            approved = True
+            EventVote.objects.create(
+                event=event,
+                node_id=settings.LOCAL_NODE_ID,
+                approved=approved,
+                signature=sign_vote(event.hash,approved)
+            )
+
         
-        apply_event(event)
         # Update nonce
-        identity.nonce = nonce
+        identity.nonce = max(identity.nonce, nonce)
         identity.save()
 
         return event

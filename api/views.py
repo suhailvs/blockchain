@@ -21,7 +21,7 @@ def validate_event(request):
         return Response({"approved": True,"signature": sign_vote(request.data["hash"],True)})
     
     except Exception as e:
-        return Response({"approved": True,"error":str(e)})
+        return Response({"approved": False,"error":str(e)})
 
 @api_view(["GET"])
 def get_events_after(request):

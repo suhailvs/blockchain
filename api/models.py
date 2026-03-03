@@ -6,7 +6,7 @@ class Event(models.Model):
         ('PENDING', 'PENDING'),
         ('CONFIRMED', 'CONFIRMED'),]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    height = models.IntegerField()
+    height = models.IntegerField(null=True, blank=True, unique=True)
     event_type = models.CharField(max_length=100)
     payload = models.JSONField()
     public_key = models.TextField()
@@ -16,7 +16,7 @@ class Event(models.Model):
     status = models.CharField(max_length=20, default="PENDING",choices=STATUS_CHOICES)
     
     def __str__(self):
-        return json.dumps(self.payload)
+        return f'{self.status}:{json.dumps(self.payload)}'
 
 class Identity(models.Model):
     public_key = models.TextField(unique=True)
