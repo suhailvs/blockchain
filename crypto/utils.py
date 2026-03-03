@@ -1,5 +1,24 @@
 from django.db import transaction
 from .models import Event, Identity,Profile
+from consensus.utils import broadcast_event,sign_vote
+from consensus.models import EventVote
+from django.conf import settings
+import json
+import hashlib
+
+def calculate_event_hash(event_id,event):
+    data = json.dumps({
+        "id": str(event_id),
+        "event_type": event['event_type'],
+        "payload": event['payload'],
+        "timestamp": event['timestamp'],
+        "public_key": event['public_key'],
+        "previous_hash": event['previous_hash'],
+    }, sort_keys=True)
+    
+    return hashlib.sha256(data.encode()).hexdigest()
+
+
 def verify_signature(public_key_hex, signature_hex, payload_dict):
     import nacl.signing
     import nacl.encoding
@@ -15,6 +34,7 @@ def verify_signature(public_key_hex, signature_hex, payload_dict):
         return True
     except Exception:
         return False
+    
 def apply_event(event):
     if event.event_type == "update_profile_image":
         identity= Identity.objects.get(public_key=event.public_key)
@@ -26,21 +46,19 @@ class EventProcessor:
 
     @staticmethod
     @transaction.atomic
-    def process_event(event_data):
+    def process_event(event_data,event_id):
         import time
-
         public_key = event_data["public_key"]
         signature = event_data["signature"]
         payload = event_data["payload"]
-        timestamp = event_data["timestamp"]
+        timestamp = int(event_data["timestamp"])
         event_type = event_data["event_type"]
         nonce = payload.get("nonce")
         if abs(time.time() - timestamp) > 300:  # if MAX_DRIFT of timestamp is greater than 5 minutes
-            raise Exception("Timestamp out of range")
+            raise Exception(f"Timestamp out of range, {time.time()}")
         
         # 1️⃣ Verify identity exists
         identity = Identity.objects.select_for_update().get(public_key=public_key)
-
         # 2️⃣ Prevent replay attack
         if nonce <= identity.nonce:
             raise Exception("Replay attack detected")
@@ -48,23 +66,37 @@ class EventProcessor:
         # 3️⃣ Verify signature
         if not verify_signature(public_key, signature, payload):
             raise Exception("Invalid signature")
+        last_event = Event.objects.filter(
+            status="CONFIRMED"
+        ).order_by("-timestamp").first()
+        previous_hash = last_event.hash if last_event else None
+        event_hash = calculate_event_hash(event_id,event_data)
 
+        if event_data["previous_hash"] != previous_hash:
+            raise Exception("Previous Hash doesn't match")
         # 4️⃣ Store immutable event
         event = Event.objects.create(
+            id=event_id,
             event_type=event_type,
             payload=payload,
             public_key=public_key,
             signature=signature,
-            timestamp=timestamp
+            timestamp=timestamp,
+            previous_hash=previous_hash,
+            hash=event_hash
+        )
+        approved = True
+        EventVote.objects.create(
+            event=event,
+            node_id=settings.LOCAL_NODE_ID,
+            approved=approved,
+            signature=sign_vote(event.hash,approved)
         )
 
-        # 5️⃣ Apply state change
-        EventProcessor.apply_event(event)
-
+        
+        apply_event(event)
         # 6️⃣ Update nonce
         identity.nonce = nonce
         identity.save()
 
         return event
-
-EventProcessor.apply_event = staticmethod(apply_event)

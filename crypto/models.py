@@ -1,4 +1,4 @@
-import uuid
+import uuid,json
 from django.db import models
 
 class Event(models.Model):
@@ -9,11 +9,15 @@ class Event(models.Model):
     signature = models.TextField()
     timestamp = models.BigIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
-
+    hash = models.CharField(max_length=64, unique=True)
+    previous_hash = models.CharField(max_length=64, null=True, blank=True)
+    status = models.CharField(max_length=20, default="PENDING")
     class Meta:
         indexes = [
             models.Index(fields=["timestamp"]),
         ]
+    def __str__(self):
+        return json.dumps(self.payload)
 
 class Identity(models.Model):
     public_key = models.TextField(unique=True)
@@ -25,3 +29,13 @@ class Identity(models.Model):
 class Profile(models.Model):
     identity = models.ForeignKey(Identity,on_delete=models.CASCADE)
     image_hash = models.CharField(max_length=200)
+    def __str__(self):
+        return f'{self.identity.id}:{self.image_hash[:10]}...'
+
+class KeyPair(models.Model):
+    # this table need to delete, only for testing purpose
+    public_key = models.TextField(unique=True)
+    private_key = models.TextField(unique=True)
+    note = models.CharField(max_length=50, blank=True)
+    def __str__(self):
+        return f'{self.note}:{self.public_key[:5]}...'

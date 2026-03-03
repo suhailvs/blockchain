@@ -1,0 +1,74 @@
+[
+{
+    "model": "crypto.identity",
+    "pk": 1,
+    "fields": {
+        "public_key": "b75ec7154c3f830b093e87c7b8145db809c63e5890b3964e83bdb5a26b5db58d",
+        "created_at": "2026-03-03T03:07:38.400Z",
+        "nonce": 0
+    }
+},
+{
+    "model": "crypto.keypair",
+    "pk": 1,
+    "fields": {
+        "public_key": "154de7272870937173ff923443ddb16f581705ee7a97c98ee6692d4b750e2960",
+        "private_key": "3f431e7be9b509146eae877b55078f3456f3e584ded219b607f0580229f77a95",
+        "note": "node3"
+    }
+},
+{
+    "model": "crypto.keypair",
+    "pk": 2,
+    "fields": {
+        "public_key": "32b1d406d7d4d09c4c43187616794c696982ca41acbc8c51c19345c6185046c7",
+        "private_key": "ca349af765a4d88b426f95262c2f67ee7ade472feae265d3a791fef52840b614",
+        "note": "node2"
+    }
+},
+{
+    "model": "crypto.keypair",
+    "pk": 3,
+    "fields": {
+        "public_key": "b0fd5c5caee18e60adc577bdf608244f626f4758afe069d3972248de2c2702b5",
+        "private_key": "521aa2e0301fdc9fa39f3804a0dfdfa18787f60561256c93f068a9c73f178de5",
+        "note": "node1"
+    }
+},
+{
+    "model": "crypto.keypair",
+    "pk": 4,
+    "fields": {
+        "public_key": "b75ec7154c3f830b093e87c7b8145db809c63e5890b3964e83bdb5a26b5db58d",
+        "private_key": "b9aef0880ccd51973cba5335232c8199a63055a961cb82a0f205e8013c39f146",
+        "note": "identity"
+    }
+},
+{
+    "model": "consensus.node",
+    "pk": 1,
+    "fields": {
+        "node_id": "localhost8000",
+        "public_key": "b0fd5c5caee18e60adc577bdf608244f626f4758afe069d3972248de2c2702b5",
+        "url": "http://localhost:8000"
+    }
+},
+{
+    "model": "consensus.node",
+    "pk": 2,
+    "fields": {
+        "node_id": "localhost8001",
+        "public_key": "32b1d406d7d4d09c4c43187616794c696982ca41acbc8c51c19345c6185046c7",
+        "url": "http://localhost:8001"
+    }
+},
+{
+    "model": "consensus.node",
+    "pk": 3,
+    "fields": {
+        "node_id": "localhost8002",
+        "public_key": "154de7272870937173ff923443ddb16f581705ee7a97c98ee6692d4b750e2960",
+        "url": "http://localhost:8002"
+    }
+}
+]

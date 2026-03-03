@@ -1,62 +1,49 @@
 # Crypto APP
+## Migrate DB and init fixtures
+```
+$ ./manage.py migrate
+$ ./manage.py loaddata datas
+```
 
 ## Generate Key Pair
+uncomment `generate_keys()` in `t.py`, then run:
 ```
-import nacl.signing
-import nacl.encoding
-
-# Generate private key
-private_key = nacl.signing.SigningKey.generate()
-
-# Get public key
-public_key = private_key.verify_key
-
-# Convert to hex (store/send safely)
-private_key_hex = private_key.encode(encoder=nacl.encoding.HexEncoder).decode()
-public_key_hex = public_key.encode(encoder=nacl.encoding.HexEncoder).decode()
-
-print("Private Key:", private_key_hex)
-print("Public Key:", public_key_hex)
+$ python t.py
 ```
 
 ## Create Identity
 
 login to django admin and create an Identity with: 
 
-publickey = "4a60c48ebb57b200b9938ac1c0504c2da43494aa4f938787051371e3376aeadc"
+publickey = "b75ec7154c3f830b093e87c7b8145db809c63e5890b3964e83bdb5a26b5db58d"
 nonce = 0
 
-## Sign Event Data (Client Side)
+## Create Genesis Event
+uncomment `create_genesis_event()` in `t.py`, then run:
 ```
-import json
+$ ./manage.py shell < t.py
+```
 
-payload = {
-    "image_hash":"123456",
-    "nonce": 1
-}
-
-message = json.dumps(payload, sort_keys=True).encode()
-
-signature = private_key.sign(message)
-
-signature_hex = signature.signature.hex()
-
-print("Signature:", signature_hex)
+## Sign Event Data (Client Side)
+uncomment `generate_signature(xx..)` in `t.py`, then run:
+```
+$ python t.py
 ```
 
 ## Send to server
 
 ```
-curl -X POST http://127.0.0.1:8000/crypto/submit/ \
+curl -X POST http://127.0.0.1:8000/api/submit/ \
   -H "Content-Type: application/json" \
   -d '{
   "event_type": "update_profile_image",
   "payload": {
     "image_hash":"123458",
-    "nonce": 3
+    "nonce": 1
   },
-  "public_key": "4a60c48ebb57b200b9938ac1c0504c2da43494aa4f938787051371e3376aeadc",
-  "signature": "33ddab789fb68af7f51f2f8fe1332821f03d7209578aaaea183d333716d368083064490f28bcc2e324d889e06e99a11d80a6745585c0bc6cb1f8370fa1ecd30e",
-  "timestamp": 1771758151
+  "public_key": "b75ec7154c3f830b093e87c7b8145db809c63e5890b3964e83bdb5a26b5db58d",
+  "signature": "94001637e208657afd6c9fdf5dda7e44ffd3f123ee5cd498a043f416a462504ab3d5cb4999284d2059871c2c8573dba5c881f5785451005eb4106a7c57691f0f",
+  "previous_hash":"895aacc457cf1e45ca011fd8fb4f8c14309d42592551babcf835f8ba8ff86f28",
+  "timestamp": 1772511261
 }'
 ```

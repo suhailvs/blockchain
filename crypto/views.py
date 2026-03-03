@@ -1,14 +1,28 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .utils import EventProcessor
+from .utils import EventProcessor,broadcast_event
 from .models import Event
+from consensus.utils import sign_vote
+
+import uuid
 @api_view(["POST"])
 def submit_event(request):
     try:
-        event = EventProcessor.process_event(request.data)
-        return Response({"status": "accepted", "event_id": str(event.id)})
+        event = EventProcessor.process_event(request.data,str(uuid.uuid4()))
+        broadcast_event(event)
+        return Response({"event_id": str(event.id)})
     except Exception as e:
-        return Response({"error": str(e)}, status=400)
+        return Response({"error": str(e)})
+
+@api_view(["POST"])
+def validate_event(request):
+    resp = {"approved": False,"signature": sign_vote(request.data["hash"])}
+    try:
+        event = EventProcessor.process_event(request.data,request.data['event_id'])
+        resp['approved']=True
+    except Exception as e:
+        resp['error']=str(e)
+    return Response(resp)
 
 @api_view(["GET"])
 def get_events_after(request, timestamp):

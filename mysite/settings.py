@@ -37,9 +37,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # custom apps
     'rest_framework',
-    
+    # my apps
     'crypto',
+    'consensus'
 ]
 
 MIDDLEWARE = [
@@ -118,3 +120,5 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+NODE_PRIVATE_KEY='521aa2e0301fdc9fa39f3804a0dfdfa18787f60561256c93f068a9c73f178de5'
+LOCAL_NODE_ID=1 # Node pk
