@@ -34,5 +34,5 @@ def create_genesis_event_using_utils():
     create_genesis_event()
 
 # generate_keys()
-# create_genesis_event_using_utils()
-generate_signature('b9aef0880ccd51973cba5335232c8199a63055a961cb82a0f205e8013c39f146')
+create_genesis_event_using_utils()
+# generate_signature('b9aef0880ccd51973cba5335232c8199a63055a961cb82a0f205e8013c39f146')

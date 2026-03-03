@@ -17,6 +17,10 @@ uncomment `generate_signature(xx..)` in `t.py`, then run:
 $ python t.py
 ```
 
+## Sync Events
+
+http://localhost:8001/api/events/sync/
+
 ## Send to server
 
 ```

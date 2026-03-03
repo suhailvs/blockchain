@@ -99,20 +99,21 @@ def sync_blockchain():
     for peer in peers:
         try:
             response = requests.get(
-                f"{peer.url}/api/events/sync/",
+                f"{peer.url}/api/events/",
                 params={"after_hash": after_hash},
                 timeout=5
             )
-
             if response.status_code != 200:
                 continue
 
             remote_events = response.json().get("events", [])
-
+            print(remote_events,'after_hash:',after_hash)
             # 3️⃣ Process received events
             for event_data in remote_events:
+                print(remote_events)
                 if not verify_and_add_event(event_data):
                     break  # stop if chain breaks
 
         except requests.RequestException:
+            print('peer error:',peer.url)
             continue

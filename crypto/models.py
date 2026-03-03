@@ -2,6 +2,9 @@ import uuid,json
 from django.db import models
 
 class Event(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'PENDING'),
+        ('CONFIRMED', 'CONFIRMED'),]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     event_type = models.CharField(max_length=100)
     payload = models.JSONField()
@@ -11,7 +14,7 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     hash = models.CharField(max_length=64, unique=True)
     previous_hash = models.CharField(max_length=64, null=True, blank=True)
-    status = models.CharField(max_length=20, default="PENDING")
+    status = models.CharField(max_length=20, default="PENDING",choices=STATUS_CHOICES)
     class Meta:
         indexes = [
             models.Index(fields=["timestamp"]),

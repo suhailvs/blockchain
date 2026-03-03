@@ -120,5 +120,5 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-NODE_PRIVATE_KEY='521aa2e0301fdc9fa39f3804a0dfdfa18787f60561256c93f068a9c73f178de5'
-LOCAL_NODE_ID=1 # Node pk
+NODE_PRIVATE_KEY='ca349af765a4d88b426f95262c2f67ee7ade472feae265d3a791fef52840b614'
+LOCAL_NODE_ID=2 # Node pk
