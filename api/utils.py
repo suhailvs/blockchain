@@ -129,12 +129,11 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
             apply_event(event)
         else:
             # do not create votes while sync blockchain
-            approved = True
             EventVote.objects.create(
                 event=event,
                 node_id=settings.LOCAL_NODE_ID,
-                approved=approved,
-                signature=sign_vote(event.hash,approved)
+                approved=True,
+                signature=sign_vote(event.hash)
             )
 
         

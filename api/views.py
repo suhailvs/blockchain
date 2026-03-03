@@ -18,7 +18,7 @@ def submit_event(request):
 def validate_event(request):
     try:
         verify_and_add_event(request.data,request.data['event_id'])
-        return Response({"approved": True,"signature": sign_vote(request.data["hash"],True)})
+        return Response({"approved": True,"signature": sign_vote(request.data["hash"])})
     
     except Exception as e:
         return Response({"approved": False,"error":str(e)})
@@ -80,7 +80,7 @@ def finalize_event(request):
             # if not is_known_validator(public_key)
             continue
 
-        if verify_signature(public_key, signature, f"{event_hash}:True",vote=True):
+        if verify_signature(public_key, signature, f"FINALIZE:{event_hash}",vote=True):
             valid_signatures += 1
             seen_keys.add(public_key)
 

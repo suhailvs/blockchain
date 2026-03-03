@@ -95,20 +95,17 @@ def check_majority(event):
     
 
 
-def sign_vote(event_hash, approved):
+def sign_vote(event_hash):
     import nacl.signing
     import nacl.encoding
-    message = f"{event_hash}:{approved}".encode()
-
+    message = f"FINALIZE:{event_hash}".encode()
     private_key_hex = settings.NODE_PRIVATE_KEY
     private_key = nacl.signing.SigningKey(
         private_key_hex,
         encoder=nacl.encoding.HexEncoder
     )
-
     signature = private_key.sign(message)
-
-    return signature.hex()
+    return signature.signature.hex()
 
 
 
