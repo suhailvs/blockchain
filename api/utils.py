@@ -1,10 +1,11 @@
 import json
 import hashlib
+import requests
 from django.db import transaction
 from django.conf import settings
 
 from .models import Event, Identity,Node
-from .consensus import sign_vote, apply_event
+from .consensus import sign_vote, apply_event,get_peers
 
 def calculate_event_hash(event_id,event, height):
     data = json.dumps({
@@ -66,6 +67,35 @@ def count_valid_finalize_signatures(event_hash, signature_list):
     print('VALID SIGNATURES:',valid_signatures,', INVALID SIGNATURES:',in_valid_signatures)
     return valid_signatures
     
+
+def sync_events():
+    events_synced = 0
+    for peer in get_peers():
+        last_event = Event.objects.filter(
+            status="CONFIRMED"
+        ).order_by("-height").first()
+        try:
+            response = requests.get(
+                f"{peer.url}/api/events/",
+                params={"after_hash": last_event.hash},
+                timeout=5
+            )
+            if response.status_code != 200:
+                continue
+            remote_events = response.json().get("events", [])
+            for event_data in remote_events:
+                if not verify_and_add_event(
+                    event_data,
+                    event_data['id'],
+                    is_sync_blockchain=True,
+                ):
+                    break  # stop if chain breaks
+                else:events_synced+=1
+
+        except requests.RequestException:
+            print('peer error:',peer.url)
+            continue
+    return events_synced
 
 def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
     with transaction.atomic():
@@ -140,10 +170,8 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
 
         if is_sync_blockchain:
             apply_event(event)
-
         
         # Update nonce
         identity.nonce = max(identity.nonce, nonce)
         identity.save()
-
         return event

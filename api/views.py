@@ -3,7 +3,7 @@ import uuid
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .utils import verify_and_add_event, count_valid_finalize_signatures
+from .utils import verify_and_add_event, count_valid_finalize_signatures,sync_events
 from .models import Event,Node
 from .consensus import sign_vote,confirm_event,get_peers,check_majority
 
@@ -87,37 +87,11 @@ def get_events_after(request):
     return Response({"events": data})
 
 @api_view(["GET"])
-def sync_events(request):
+def sync(request):
     # Synchronize missing confirmed events from peers.
-    events_synced = 0
-    for peer in get_peers():
-        last_event = Event.objects.filter(
-            status="CONFIRMED"
-        ).order_by("-height").first()
-        print('Last Event Hash:',last_event.hash)
-        try:
-            response = requests.get(
-                f"{peer.url}/api/events/",
-                params={"after_hash": last_event.hash},
-                timeout=5
-            )
-            if response.status_code != 200:
-                continue
-            remote_events = response.json().get("events", [])
-            for event_data in remote_events:
-                if not verify_and_add_event(
-                    event_data,
-                    event_data['id'],
-                    is_sync_blockchain=True,
-                ):
-                    break  # stop if chain breaks
-                else:events_synced+=1
-
-        except requests.RequestException:
-            print('peer error:',peer.url)
-            continue
+    events_synced = sync_events()
     print('Events synced:',events_synced)
-    return Response({"status": "success","events_synced":events_synced})
+    return Response({"events_synced":events_synced})
 
 @api_view(["POST"])
 def finalize_event(request):
@@ -127,7 +101,12 @@ def finalize_event(request):
     try:
         event = Event.objects.get(id=event_id)
     except Event.DoesNotExist:
-        return Response({"error": "Event not found"}, status=404)
+        # since we call finalize_event before all peers events update, we get error Event matching query does not exist.
+        # return Response({"error": "Event not found"}, status=404)
+        print('Event not found. So run sleep and get the event.')
+        sync_events()
+        event = Event.objects.get(id=event_id)
+
     if event.hash != event_hash:
         return Response({"error": "Hash mismatch"}, status=400)
     valid_signatures = count_valid_finalize_signatures(event_hash, signature_list)
