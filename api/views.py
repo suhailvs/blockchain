@@ -51,8 +51,8 @@ def submit_event(request):
 @api_view(["POST"])
 def validate_event(request):
     try:
-        verify_and_add_event(request.data,request.data['event_id'])
-        return Response({"approved": True,"signature": sign_vote(request.data["hash"])})
+        event = verify_and_add_event(request.data,request.data['event_id'])
+        return Response({"approved": True,"signature": sign_vote(event.hash)})
     
     except Exception as e:
         return Response({"approved": False,"error":str(e)})

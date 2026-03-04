@@ -19,12 +19,12 @@ def calculate_event_hash(event_id,event, height):
     return hashlib.sha256(data.encode()).hexdigest()
 
 
-def verify_signature(public_key_hex, signature_hex, payload,vote=False):
+def verify_signature(public_key_hex, signature_hex, payload):
     from nacl.encoding import HexEncoder
     from nacl.signing import VerifyKey
     try:
         public_key = VerifyKey(public_key_hex,encoder=HexEncoder)
-        if vote:
+        if isinstance(payload, str):
             message = payload
         else:
             message = json.dumps(payload, sort_keys=True)
@@ -51,7 +51,7 @@ def count_valid_finalize_signatures(event_hash, signature_list):
         if not Node.objects.filter(public_key=public_key).exists():
             continue
 
-        if verify_signature(public_key, vote_signature, f"FINALIZE:{event_hash}", vote=True):
+        if verify_signature(public_key, vote_signature, f"FINALIZE:{event_hash}"):
             valid_signatures += 1
             seen_keys.add(public_key)
 
@@ -72,7 +72,12 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
         if not is_sync_blockchain and nonce <= identity.nonce:
             raise Exception(f"Replay attack detected. Nonce:{nonce}, Identity nonce:{identity.nonce}")
         # Verify signature
-        if not verify_signature(public_key, signature, payload):
+        signed_payload = {
+            "event_type": event_type,
+            "payload": payload,
+            "previous_hash": previous_hash,
+        }        
+        if not verify_signature(public_key, signature, signed_payload):
             raise Exception("Invalid signature")
         last_event = Event.objects.filter(
             status="CONFIRMED"
@@ -84,7 +89,15 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
         if is_sync_blockchain:
             signature_list = event_data.get("signature_list", event_data.get("votes", []))
             new_height = event_data["height"]
-            event_hash = event_data["hash"]
+            expected_height = last_event.height + 1
+            if new_height != expected_height:
+                raise Exception("Invalid height during sync")
+
+            expected_hash = calculate_event_hash(event_id, event_data, height=new_height)
+            if event_data["hash"] != expected_hash:
+                raise Exception("Invalid event hash during sync")
+
+            event_hash = expected_hash
             valid_signatures = count_valid_finalize_signatures(event_hash, signature_list)
 
             if valid_signatures <= Node.objects.count() / 2:
@@ -121,7 +134,7 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
 
         
         # Update nonce
-        identity.nonce = nonce
+        identity.nonce = max(identity.nonce, nonce)
         identity.save()
 
         return event

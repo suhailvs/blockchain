@@ -15,12 +15,16 @@ def generate_keys():
 
 def generate_signature(private_key_hex):    
     private_key = SigningKey(private_key_hex,encoder=HexEncoder)
-    payload = {
+    event_payload = {
         "image_hash":"123458",
         "nonce": 1
     }
-    message = json.dumps(payload, sort_keys=True)
-    # message = 'hai'
+    signing_payload = {
+        "event_type": "update_profile_image",
+        "payload": event_payload,
+        "previous_hash": "9f901266d041aa9689439440be314fd1d4d7eb597ddad339480bf193f437c607",
+    }
+    message = json.dumps(signing_payload, sort_keys=True)
     signed = private_key.sign(message.encode())
     print("Signature:", signed.signature.hex())
 
@@ -76,10 +80,14 @@ def docs():
 
 def verify_signature(public_key_hex,signature):
     public_key = VerifyKey(public_key_hex, encoder=HexEncoder)
-    payload = {
+    event_payload = {
         "image_hash":"123458",
         "nonce": 1
     }
-    message = json.dumps(payload, sort_keys=True)
-    # message = 'hai'
+    signing_payload = {
+        "event_type": "update_profile_image",
+        "payload": event_payload,
+        "previous_hash": "9f901266d041aa9689439440be314fd1d4d7eb597ddad339480bf193f437c607",
+    }
+    message = json.dumps(signing_payload, sort_keys=True)
     public_key.verify(message.encode(), bytes.fromhex(signature))
