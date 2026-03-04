@@ -102,11 +102,12 @@ def finalize_event(request):
         event = Event.objects.get(id=event_id)
     except Event.DoesNotExist:
         # since we call finalize_event before all peers events update, we get error Event matching query does not exist.
+        # TODO: don't know wheter to return 404 or do a sync_events function
         # return Response({"error": "Event not found"}, status=404)
-        print('Event not found. So run sleep and get the event.')
+        print('Event not found. So sync events')
         sync_events()
-        event = Event.objects.get(id=event_id)
-
+        return Response({"status": Event.objects.get(id=event_id).status})
+        
     if event.hash != event_hash:
         return Response({"error": "Hash mismatch"}, status=400)
     valid_signatures = count_valid_finalize_signatures(event_hash, signature_list)
