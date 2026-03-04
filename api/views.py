@@ -1,8 +1,9 @@
+import requests
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .utils import verify_and_add_event, count_valid_finalize_signatures
 from .models import Event,Node
-from .consensus import broadcast_event,sign_vote,sync_blockchain,confirm_event
+from .consensus import broadcast_event,sign_vote,confirm_event,get_peers
 
 import uuid
 @api_view(["POST"])
@@ -54,8 +55,36 @@ def get_events_after(request):
 
 @api_view(["GET"])
 def sync_events(request):
-    sync_blockchain()
-    return Response({"status": "success"})
+    # Synchronize missing confirmed events from peers.
+    events_synced = 0
+    for peer in get_peers():
+        last_event = Event.objects.filter(
+            status="CONFIRMED"
+        ).order_by("-height").first()
+        print('Last Event Hash:',last_event.hash)
+        try:
+            response = requests.get(
+                f"{peer.url}/api/events/",
+                params={"after_hash": last_event.hash},
+                timeout=5
+            )
+            if response.status_code != 200:
+                continue
+            remote_events = response.json().get("events", [])
+            for event_data in remote_events:
+                if not verify_and_add_event(
+                    event_data,
+                    event_data['id'],
+                    is_sync_blockchain=True,
+                ):
+                    break  # stop if chain breaks
+                else:events_synced+=1
+
+        except requests.RequestException:
+            print('peer error:',peer.url)
+            continue
+    print('Events synced:',events_synced)
+    return Response({"status": "success","events_synced":events_synced})
 
 @api_view(["POST"])
 def finalize_event(request):
