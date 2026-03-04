@@ -31,11 +31,18 @@ def verify_signature(public_key_hex, signature_hex, payload):
         public_key.verify(message.encode(), bytes.fromhex(signature_hex))
         return True
     except Exception as e:
+        print('='*50)
         print(e)
+        print('-'*50)
+        print('public_key_hex:',public_key_hex)
+        print('signature_hex:',signature_hex)
+        print('Payload:',payload)
+        print('='*50)
         return False
 
 def count_valid_finalize_signatures(event_hash, signature_list):
     valid_signatures = 0
+    in_valid_signatures = 0
     seen_keys = set()
 
     for item in signature_list:
@@ -54,7 +61,9 @@ def count_valid_finalize_signatures(event_hash, signature_list):
         if verify_signature(public_key, vote_signature, f"FINALIZE:{event_hash}"):
             valid_signatures += 1
             seen_keys.add(public_key)
-
+        else:
+            in_valid_signatures += 1
+    print('VALID SIGNATURES:',valid_signatures,', INVALID SIGNATURES:',in_valid_signatures)
     return valid_signatures
     
 
