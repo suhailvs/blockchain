@@ -1,7 +1,6 @@
 import requests
-from .models import Node, EventVote
 from django.conf import settings
-from .models import Identity,Profile, Event
+from .models import Node, EventVote, Identity, Profile, Event
 
 def get_peers():
     return Node.objects.exclude(node_id=settings.LOCAL_NODE_ID)
@@ -12,6 +11,11 @@ def apply_event(event):
         profile, created = Profile.objects.get_or_create(identity=identity)
         profile.image_hash = event.payload["image_hash"]
         profile.save()
+    elif event.event_type == "TRANSFER":
+        # sender = event.payload["sender"]
+        # receiver = event.payload["receiver"]
+        # amount = event.payload["amount"]
+        print('transfer')
 
 def broadcast_event(event):
     event_data = {
@@ -40,10 +44,9 @@ def broadcast_event(event):
                         "signature": data.get("signature", "")
                     }
                 )
-                # Check majority after each vote
                 check_majority(event)
         except requests.RequestException:
-            # Node unreachable, ignore for now
+            print('Broadcast error.')
             continue
 
 def broadcast_finalization(event):
@@ -66,8 +69,9 @@ def broadcast_finalization(event):
             )
             print(peer.url,response.json())
         except Exception as e:
-            print('Broadcast error.',e)
+            print('Broadcast finalization error.',e)
             continue
+
 def confirm_event(event):
     if Event.objects.filter(height=event.height, status="CONFIRMED").exists():
         # reject_this_event

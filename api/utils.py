@@ -1,6 +1,6 @@
 from django.db import transaction
-from .models import Event, Identity,Profile,EventVote
-from .consensus import sign_vote
+from .models import Event, Identity,Profile,EventVote,Node
+from .consensus import sign_vote, apply_event
 from django.conf import settings
 import json
 import hashlib
@@ -33,15 +33,30 @@ def verify_signature(public_key_hex, signature_hex, payload,vote=False):
         print(e)
         return False
 
+def count_valid_finalize_signatures(event_hash, signature_list):
+    valid_signatures = 0
+    seen_keys = set()
+
+    for item in signature_list:
+        public_key = item.get("public_key")
+        vote_signature = item.get("signature")
+
+        if not public_key or not vote_signature:
+            continue
+
+        if public_key in seen_keys:
+            continue
+
+        if not Node.objects.filter(public_key=public_key).exists():
+            continue
+
+        if verify_signature(public_key, vote_signature, f"FINALIZE:{event_hash}", vote=True):
+            valid_signatures += 1
+            seen_keys.add(public_key)
+
+    return valid_signatures
+
     
-def apply_event(event):
-    if event.event_type == "update_profile_image":
-        identity= Identity.objects.get(public_key=event.public_key)
-        profile, created = Profile.objects.get_or_create(identity=identity)
-        profile.image_hash = event.payload["image_hash"]
-        profile.save()
-
-
 def create_genesis_event():
     if Event.objects.exists(): 
         print('Event Exists')
@@ -96,11 +111,13 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
             raise Exception("Previous Hash doesn't match")
 
         if is_sync_blockchain:
-            # TODO: need to check EventVote Signatures
-            # look views.finalize_event
-            # signature_list
+            signature_list = event_data.get("signature_list", [])
             new_height = event_data["height"]
             event_hash = event_data["hash"]
+            valid_signatures = count_valid_finalize_signatures(event_hash, signature_list)
+
+            if valid_signatures <= Node.objects.count() / 2:
+                raise Exception("Insufficient valid EventVote signatures")
             new_status = "CONFIRMED"
         else:
             last_event = Event.objects.filter(
