@@ -14,6 +14,7 @@ class Event(models.Model):
     signature = models.TextField()
     hash = models.CharField(max_length=64, unique=True)
     previous_hash = models.CharField(max_length=64, null=True, blank=True)
+    votes = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, default="PENDING",choices=STATUS_CHOICES)
     class Meta:
         constraints = [
@@ -46,14 +47,6 @@ class KeyPair(models.Model):
     def __str__(self):
         return f'{self.note}:{self.public_key[:5]}...'
 
-
-class EventVote(models.Model):
-    event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    node_id = models.CharField(max_length=100)
-    signature = models.TextField()
-    approved = models.BooleanField()
-    def __str__(self):
-        return f'{self.node_id}:{json.dumps(self.event.payload)}'
 
 class Node(models.Model):
     node_id = models.CharField(max_length=100, unique=True)

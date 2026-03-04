@@ -1,5 +1,5 @@
 from django.db import transaction
-from .models import Event, Identity,Profile,EventVote,Node
+from .models import Event, Identity,Profile,Node
 from .consensus import sign_vote, apply_event
 from django.conf import settings
 import json
@@ -111,7 +111,7 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
             raise Exception("Previous Hash doesn't match")
 
         if is_sync_blockchain:
-            signature_list = event_data.get("signature_list", [])
+            signature_list = event_data.get("signature_list", event_data.get("votes", []))
             new_height = event_data["height"]
             event_hash = event_data["hash"]
             valid_signatures = count_valid_finalize_signatures(event_hash, signature_list)
@@ -138,19 +138,15 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
             signature=signature,
             previous_hash=previous_hash,
             hash=event_hash,
+            votes=signature_list if is_sync_blockchain else [{
+                "public_key": Node.objects.get(node_id=settings.LOCAL_NODE_ID).public_key,
+                "signature": sign_vote(event_hash),
+            }],
             status=new_status,
         )
 
         if is_sync_blockchain:
             apply_event(event)
-        else:
-            # do not create votes while sync blockchain
-            EventVote.objects.create(
-                event=event,
-                node_id=settings.LOCAL_NODE_ID,
-                approved=True,
-                signature=sign_vote(event.hash)
-            )
 
         
         # Update nonce

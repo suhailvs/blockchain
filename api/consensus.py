@@ -1,6 +1,6 @@
 import requests
 from django.conf import settings
-from .models import Node, EventVote, Identity, Profile, Event
+from .models import Node, Identity, Profile, Event
 
 def get_peers():
     return Node.objects.exclude(node_id=settings.LOCAL_NODE_ID)
@@ -36,14 +36,15 @@ def broadcast_event(event):
             )
             if response.status_code == 200:
                 data = response.json()
-                EventVote.objects.update_or_create(
-                    event=event,
-                    node_id=peer.node_id,
-                    defaults={
-                        "approved": data.get("approved", False),
-                        "signature": data.get("signature", "")
-                    }
-                )
+                if data.get("approved") and data.get("signature"):
+                    # Keep one vote per validator public key.
+                    votes = [v for v in event.votes if v.get("public_key") != peer.public_key]
+                    votes.append({
+                        "public_key": peer.public_key,
+                        "signature": data["signature"],
+                    })
+                    event.votes = votes
+                    event.save(update_fields=["votes"])
                 check_majority(event)
         except requests.RequestException:
             print('Broadcast error.')
@@ -53,12 +54,7 @@ def broadcast_finalization(event):
     data = {
         "event_id": str(event.id),
         "event_hash": event.hash,
-        "signature_list":[
-            {
-                "public_key":Node.objects.get(node_id=v.node_id).public_key,
-                "signature":v.signature
-            } for v in event.eventvote_set.all()
-        ]
+        "signature_list": event.votes,
     }
     for peer in get_peers():
         try:
@@ -84,10 +80,8 @@ def confirm_event(event):
 def check_majority(event):
     if event.status == "CONFIRMED":
         return
-    approvals = EventVote.objects.filter(
-        event=event,
-        approved=True
-    ).count()
+    from .utils import count_valid_finalize_signatures
+    approvals = count_valid_finalize_signatures(event.hash, event.votes)
     total_nodes = Node.objects.count()
     if approvals > total_nodes / 2:
         confirm_event(event)

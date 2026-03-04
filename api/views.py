@@ -46,6 +46,7 @@ def get_events_after(request):
             "signature": e.signature,
             "previous_hash": e.previous_hash,
             "hash": e.hash,
+            "votes": e.votes,
         }
         for e in events
     ]
@@ -70,6 +71,8 @@ def finalize_event(request):
     valid_signatures = count_valid_finalize_signatures(event_hash, signature_list)
 
     if valid_signatures > Node.objects.count() / 2:
+        event.votes = signature_list
+        event.save(update_fields=["votes"])
         if event.status != "CONFIRMED":
             confirm_event(event)
         return Response({"status": "CONFIRMED"})
