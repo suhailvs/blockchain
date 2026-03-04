@@ -68,10 +68,9 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
         nonce = payload.get("nonce")
         # Verify identity exists
         identity = Identity.objects.select_for_update().get(public_key=public_key)
-        # Prevent replay attack
-        if nonce <= identity.nonce:
-            raise Exception("Replay attack detected")
-
+        # Prevent replay attack for live submissions.
+        if not is_sync_blockchain and nonce <= identity.nonce:
+            raise Exception(f"Replay attack detected. Nonce:{nonce}, Identity nonce:{identity.nonce}")
         # Verify signature
         if not verify_signature(public_key, signature, payload):
             raise Exception("Invalid signature")
@@ -122,7 +121,7 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
 
         
         # Update nonce
-        identity.nonce = max(identity.nonce, nonce)
+        identity.nonce = nonce
         identity.save()
 
         return event
