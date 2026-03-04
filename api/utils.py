@@ -1,9 +1,10 @@
-from django.db import transaction
-from .models import Event, Identity,Profile,Node
-from .consensus import sign_vote, apply_event
-from django.conf import settings
 import json
 import hashlib
+from django.db import transaction
+from django.conf import settings
+
+from .models import Event, Identity,Node
+from .consensus import sign_vote, apply_event
 
 def calculate_event_hash(event_id,event, height):
     data = json.dumps({
@@ -55,35 +56,7 @@ def count_valid_finalize_signatures(event_hash, signature_list):
             seen_keys.add(public_key)
 
     return valid_signatures
-
     
-def create_genesis_event():
-    if Event.objects.exists(): 
-        print('Event Exists')
-        return None
-    GENESIS_ID=1
-    event_data = {
-        "id": str(GENESIS_ID),
-        "height":0,
-        "event_type": "GENESIS",
-        "payload": {"message": "Initial event"},
-        "public_key": "SYSTEM",
-        "previous_hash": "0" * 64,
-    }
-
-    event_hash = calculate_event_hash(event_data['id'],event_data,height=event_data['height'])
-    print('Event Created')
-    return Event.objects.create(
-        id=GENESIS_ID,
-        height=event_data['height'],
-        event_type=event_data['event_type'],
-        payload=event_data["payload"],
-        public_key=event_data['public_key'],
-        signature="GENESIS",
-        previous_hash=event_data['previous_hash'],
-        hash=event_hash,
-        status="CONFIRMED"
-    )
 
 def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
     with transaction.atomic():
@@ -105,9 +78,8 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
         last_event = Event.objects.filter(
             status="CONFIRMED"
         ).order_by("-height").first()
-        expected_previous_hash = last_event.hash if last_event else "0" * 64
 
-        if event_data["previous_hash"] != expected_previous_hash:
+        if event_data["previous_hash"] != last_event.hash:
             raise Exception("Previous Hash doesn't match")
 
         if is_sync_blockchain:

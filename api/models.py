@@ -7,13 +7,13 @@ class Event(models.Model):
         ('CONFIRMED', 'CONFIRMED'),
         ('REJECTED','REJECTED')]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    height = models.IntegerField(null=True, blank=True)
+    height = models.IntegerField()
     event_type = models.CharField(max_length=100)
     payload = models.JSONField()
     public_key = models.TextField()
     signature = models.TextField()
     hash = models.CharField(max_length=64, unique=True)
-    previous_hash = models.CharField(max_length=64, null=True, blank=True)
+    previous_hash = models.CharField(max_length=64)
     votes = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, default="PENDING",choices=STATUS_CHOICES)
     class Meta:

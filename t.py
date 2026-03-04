@@ -26,8 +26,34 @@ def generate_signature(private_key_hex):
 
 def create_genesis_event_using_utils():
     # ./manage.py shell < t.py
-    from api.utils import create_genesis_event
-    create_genesis_event()
+    from api.models import Event
+    from api.utils import calculate_event_hash
+    
+    if Event.objects.filter(status="CONFIRMED").exists(): 
+        print('Event Exists')
+        return None
+    GENESIS_ID=1
+    height = 0
+    event_data = {
+        "event_type": "GENESIS",
+        "payload": {"message": "Initial event"},
+        "public_key": "SYSTEM",
+        "previous_hash": "0" * 64,
+    }
+
+    event_hash = calculate_event_hash(str(GENESIS_ID),event_data,height)
+    print('Event Created')
+    return Event.objects.create(
+        id=GENESIS_ID,
+        height=height,
+        event_type=event_data['event_type'],
+        payload=event_data["payload"],
+        public_key=event_data['public_key'],
+        signature="GENESIS",
+        previous_hash=event_data['previous_hash'],
+        hash=event_hash,
+        status="CONFIRMED"
+    )
 
 # generate_keys()
 # generate_signature(private_key_hex='b9aef0880ccd51973cba5335232c8199a63055a961cb82a0f205e8013c39f146')
