@@ -65,7 +65,7 @@ class EventSubmissionView(APIView):
         heights = []
         for peer in get_peers():
             try:
-                r = requests.get(f"{peer}/", timeout=5)
+                r = requests.get(f"{peer.url}/", timeout=5)
                 data = r.json()
                 heights.append(data["height"])
             except Exception as e:
