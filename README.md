@@ -36,17 +36,10 @@ curl -X POST http://127.0.0.1:8000/api/submit/ \
 
 ## Sync Blockchain
 
-http://localhost:8000/api/sync/
+`$ ./manage.py syncblockchain`
 
 ## Generate Key Pair
-uncomment `generate_keys()` in `t.py`, then run:
+uncomment `ed25519_key_from_mnemonic()` in `t.py`, then run:
 ```
 $ python t.py
 ```
-
-## Create Identity
-
-login to django admin and create an Identity with: 
-
-publickey = "b75ec7154c3f830b093e87c7b8145db809c63e5890b3964e83bdb5a26b5db58d"
-nonce = 0

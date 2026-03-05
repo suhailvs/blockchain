@@ -1,11 +1,41 @@
 import json
 import hashlib
-import requests
 from django.db import transaction
 from django.conf import settings
 
-from .models import Event, Identity,Node
-from .consensus import sign_vote, apply_event,get_peers
+from .models import Event, Identity,Node, Profile
+
+def get_peers():
+    return Node.objects.exclude(node_id=settings.LOCAL_NODE_ID)
+
+def apply_event(event):
+    if event.event_type == "update_profile_image":
+        identity= Identity.objects.get(public_key=event.public_key)
+        profile, created = Profile.objects.get_or_create(identity=identity)
+        profile.image_hash = event.payload["image_hash"]
+        profile.save()
+    elif event.event_type == "TRANSFER":
+        # sender = event.payload["sender"]
+        # receiver = event.payload["receiver"]
+        # amount = event.payload["amount"]
+        print('transfer')
+
+def confirm_event(event):
+    if Event.objects.filter(height=event.height, status="CONFIRMED").exists():
+        # reject_this_event
+        event.status = "REJECTED"
+    else:
+        event.status = "CONFIRMED"
+    event.save()
+    apply_event(event)
+
+def sign_vote(event_hash):
+    from nacl.encoding import HexEncoder
+    from nacl.signing import SigningKey
+    message = f"FINALIZE:{event_hash}"
+    private_key = SigningKey(settings.NODE_PRIVATE_KEY, encoder=HexEncoder)
+    signed = private_key.sign(message.encode())
+    return signed.signature.hex()
 
 def calculate_event_hash(event_id,event, height):
     data = json.dumps({
@@ -68,35 +98,6 @@ def count_valid_finalize_signatures(event_hash, signature_list):
     return valid_signatures
     
 
-def sync_events():
-    events_synced = 0
-    for peer in get_peers():
-        last_event = Event.objects.filter(
-            status="CONFIRMED"
-        ).order_by("-height").first()
-        try:
-            response = requests.get(
-                f"{peer.url}/api/events/",
-                params={"after_hash": last_event.hash},
-                timeout=5
-            )
-            if response.status_code != 200:
-                continue
-            remote_events = response.json().get("events", [])
-            for event_data in remote_events:
-                if not verify_and_add_event(
-                    event_data,
-                    event_data['id'],
-                    is_sync_blockchain=True,
-                ):
-                    break  # stop if chain breaks
-                else:events_synced+=1
-
-        except requests.RequestException:
-            print('peer error:',peer.url)
-            continue
-    return events_synced
-
 def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
     with transaction.atomic():
         public_key = event_data["public_key"]
@@ -138,7 +139,8 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
 
             event_hash = expected_hash
             valid_signatures = count_valid_finalize_signatures(event_hash, signature_list)
-
+            # TODO: While sync blockchain, for old events there may be less total nodes
+            # ie new nodes might be added in future            
             if valid_signatures <= Node.objects.count() / 2:
                 raise Exception("Insufficient valid EventVote signatures")
             new_status = "CONFIRMED"
