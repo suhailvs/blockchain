@@ -3,13 +3,22 @@
 from nacl.encoding import HexEncoder
 from nacl.signing import SigningKey
 from nacl.signing import VerifyKey
+from mnemonic import Mnemonic
 import json
 
-def generate_keys():
-    private_key = SigningKey.generate()
+def ed25519_key_from_mnemonic(mnemonic_phrase):
+    # Example usage
+    # ed25519_key_from_mnemonic('bachelor clap draw nerve feature capital entire silly tower letter negative interest slogan bring sword abstract drift noodle middle discover armed undo pact donate')
+    mnemo = Mnemonic("english") 
+    if not mnemo.check(mnemonic_phrase):
+        raise ValueError("Invalid mnemonic phrase")
+    seed = mnemo.to_seed(mnemonic_phrase, passphrase = "")
+    # Use first 32 bytes for Ed25519 private key
+    private_key = SigningKey(seed[:32])
     public_key = private_key.verify_key
     private_key_hex = private_key.encode(encoder=HexEncoder).decode()
-    public_key_hex = public_key.encode(encoder=HexEncoder).decode()
+    public_key_hex = public_key.encode(encoder=HexEncoder).decode()       
+    print("Mnemonic 24 words:", mnemonic_phrase)
     print("Public Key:", public_key_hex)
     print("Private Key:", private_key_hex)
 
@@ -59,7 +68,7 @@ def create_genesis_event_using_utils():
         status="CONFIRMED"
     )
 
-# generate_keys()
+# ed25519_key_from_mnemonic(Mnemonic("english").generate(strength=256)) # 24 words
 # generate_signature(private_key_hex='b9aef0880ccd51973cba5335232c8199a63055a961cb82a0f205e8013c39f146')
 create_genesis_event_using_utils()
 
