@@ -10,6 +10,7 @@ class Command(BaseCommand):
         events_synced = 0
         for peer in get_peers():
             while True:
+                # api/events/ only will give 100 events per request so need to run loop
                 last_event = Event.objects.filter(
                     status="CONFIRMED"
                 ).order_by("-height").first()
@@ -20,10 +21,14 @@ class Command(BaseCommand):
                         timeout=5
                     )
                     if response.status_code != 200:
-                        continue
+                        self.stdout.write(f"Error while syncing peer {peer.url}")
+                        break
                     remote_events = response.json().get("events", [])
                     if not remote_events:
                         # sync completed
+                        self.stdout.write(
+                            self.style.SUCCESS(f'All events synced in peer {peer.url}')
+                        )
                         break
                     for event_data in remote_events:
                         if not verify_and_add_event(
@@ -35,7 +40,7 @@ class Command(BaseCommand):
                         else:events_synced+=1
                 except Exception as e:
                     self.stdout.write(f"Error syncing from peer:{peer.url},{e}")
-                    continue
+                    break
         self.stdout.write(
             self.style.SUCCESS(f'Events synced:{events_synced}')
         )

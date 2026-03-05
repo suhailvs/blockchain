@@ -46,4 +46,5 @@ $ python t.py
 
 # TODO
 
++ check if a event is submited to a node which's publickey in not added to nodes
 + (i didn't thinked about it much just a quick thougt)what if transaction validation while syncing peers, the balance will not match

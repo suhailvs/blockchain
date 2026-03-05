@@ -14,6 +14,8 @@ ErrorResponse = lambda error: Response({"error":error},status=404)
 
 class GetEventsAfterThrottle(AnonRateThrottle):
     rate = "10/min"
+class SubmitEventThrottle(AnonRateThrottle):
+    rate = "60/min"
 
 @api_view(["GET"])
 def home(request):
@@ -23,6 +25,7 @@ def home(request):
     return Response({"height": last_event.height,"hash":last_event.hash})
 
 @api_view(["POST"])
+@throttle_classes([SubmitEventThrottle])
 def submit_event(request):
     try:
         event = verify_and_add_event(request.data,str(uuid.uuid4()))
