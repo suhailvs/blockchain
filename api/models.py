@@ -61,5 +61,5 @@ class ErrorLog(models.Model):
     def __str__(self):
         from django.utils import timezone
         local_time = timezone.localtime(self.created_at)
-        formattedtime = local_time.strftime("%Y-%m-%d %H:%M:%S")
+        formattedtime = local_time.strftime("%d %b %Y %I:%M %p")
         return f'{formattedtime} - {self.text.split('\n')[0]}'

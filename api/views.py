@@ -7,7 +7,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.decorators import throttle_classes
 from rest_framework.views import APIView
 from .utils import (verify_and_add_event, count_valid_finalize_signatures,
-    generate_signature,confirm_event,get_peers)
+    generate_signature,confirm_event,get_peers, sync_events)
 from .models import Event,Node, ErrorLog
 from .auth import consensus_required, create_consensus_auth_headers
 ErrorResponse = lambda error: Response({"error":error},status=404)
@@ -152,7 +152,7 @@ class EventSubmissionView(APIView):
         heights = self.get_network_latest(local.height)
         if max(heights) > local.height:
             # "Node behind. Syncing first."
-            sync_missing_blocks()
+            sync_events()
         
         try:
             event = verify_and_add_event(request.data,str(uuid.uuid4()))
