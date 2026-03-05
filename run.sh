@@ -4,6 +4,6 @@
 rm db.sqlite3
 python manage.py migrate
 python manage.py loaddata datas
-python manage.py shell < t.py
+python manage.py creategenesisevent
 
 # to run $ `bash run.sh`

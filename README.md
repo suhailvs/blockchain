@@ -4,7 +4,7 @@
 ```
 $ ./manage.py migrate
 $ ./manage.py loaddata datas
-$ ./manage.py shell < t.py
+$ ./manage.py creategenesisevent
 ```
 or run `$ bash run.sh`
 
