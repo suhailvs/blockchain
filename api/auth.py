@@ -3,6 +3,7 @@
 from functools import wraps
 import time
 import json
+import hashlib
 from rest_framework.response import Response
 from django.conf import settings
 from .models import Node
@@ -21,8 +22,10 @@ def consensus_required(view_func):
         if abs(time.time() - int(timestamp)) > 5: # replay protection (5 seconds window)
             return Response({"error": "Unauthorized: Replay attack detected"}, status=401)
 
-        body = request.body.decode()
-        message = f"{request.method}|{request.path}|{body}|{timestamp}"
+        body_dict = json.loads(request.body.decode())
+        canonical_body = json.dumps(body_dict, separators=(",", ":"), sort_keys=True)
+        body_hash = hashlib.sha256(canonical_body.encode()).hexdigest()
+        message = f"{request.method}|{request.path}|{body_hash}|{timestamp}"
 
         if not verify_signature(node.public_key,signature,message):
             return Response({"error": "Unauthorized: Signature not match."}, status=401)
@@ -31,8 +34,9 @@ def consensus_required(view_func):
 
 def create_consensus_auth_headers(method, path, body):
     timestamp = str(int(time.time()))
-    body_json = json.dumps(body or {}, separators=(",", ":"), sort_keys=True)
-    message = f"{method.upper()}|{path}|{body_json}|{timestamp}"
+    canonical_body = json.dumps(body, separators=(",", ":"), sort_keys=True)
+    body_hash = hashlib.sha256(canonical_body.encode()).hexdigest()
+    message = f"{method.upper()}|{path}|{body_hash}|{timestamp}"
     return {
         "X-Node-Id": settings.LOCAL_NODE_ID,
         "X-Signature": generate_signature(message),
