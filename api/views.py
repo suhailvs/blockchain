@@ -6,9 +6,9 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.decorators import throttle_classes
 from .utils import (verify_and_add_event, count_valid_finalize_signatures,
-    sign_vote,confirm_event,get_peers)
+    generate_signature,confirm_event,get_peers)
 from .models import Event,Node
-
+from .auth import consensus_required, create_consensus_auth_headers
 ErrorResponse = lambda error: Response({"error":error},status=404)
 
 
@@ -24,81 +24,6 @@ def home(request):
     ).order_by("-height").first()
     return Response({"height": last_event.height,"hash":last_event.hash})
 
-@api_view(["POST"])
-@throttle_classes([SubmitEventThrottle])
-def submit_event(request):
-    try:
-        event = verify_and_add_event(request.data,str(uuid.uuid4()))
-    except Exception as e:
-        return ErrorResponse(str(e))
-    # broadcast_event
-    event_data = {
-        "event_id": str(event.id),
-        "event_type": event.event_type,
-        "payload": event.payload,
-        "public_key": event.public_key,
-        "signature": event.signature,
-        "hash": event.hash,
-        "previous_hash": event.previous_hash,
-    }
-    total_nodes = Node.objects.count()
-    approvals=0
-    for peer in get_peers():
-        try:
-            response = requests.post(
-                f"{peer.url}/api/validate/",
-                json=event_data,
-                timeout=5
-            )
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("approved") and data.get("signature"):
-                    # Keep one vote per validator public key.
-                    votes = [v for v in event.votes if v.get("public_key") != peer.public_key]
-                    votes.append({
-                        "public_key": peer.public_key,
-                        "signature": data["signature"],
-                    })
-                    event.votes = votes
-                    event.save(update_fields=["votes"])
-                # check_majority
-                if event.status != "CONFIRMED":
-                    approvals = count_valid_finalize_signatures(event.hash, event.votes)
-                    if approvals > total_nodes / 2:
-                        confirm_event(event)
-                        
-        except Exception as e:
-            print('Broadcast error:',peer.url,e)
-            continue
-        
-    if approvals > total_nodes / 2:
-        # broadcast_finalization(event):
-        data = {
-            "event_id": str(event.id),
-            "event_hash": event.hash,
-            "signature_list": event.votes,
-        }
-        for peer in get_peers():
-            try:
-                response = requests.post(
-                    f"{peer.url}/api/finalize-event/",
-                    json=data,
-                    timeout=3
-                )
-                print(peer.url,response.json())
-            except Exception as e:
-                print('Broadcast finalization error:',peer.url,e)
-                continue
-    return Response({"event_id": str(event.id)})
-
-
-@api_view(["POST"])
-def validate_event(request):
-    try:
-        event = verify_and_add_event(request.data,request.data['event_id'])
-        return Response({"approved": True,"signature": sign_vote(event.hash)})    
-    except Exception as e:
-        return ErrorResponse(str(e))
 
 @api_view(["GET"])
 @throttle_classes([GetEventsAfterThrottle])
@@ -131,8 +56,97 @@ def get_events_after(request):
     ]
     return Response({"events": data})
 
+@api_view(["POST"])
+@throttle_classes([SubmitEventThrottle])
+def submit_event(request):
+    try:
+        event = verify_and_add_event(request.data,str(uuid.uuid4()))
+    except Exception as e:
+        return ErrorResponse(str(e))
+    # broadcast_event
+    event_data = {
+        "event_id": str(event.id),
+        "event_type": event.event_type,
+        "payload": event.payload,
+        "public_key": event.public_key,
+        "signature": event.signature,
+        "hash": event.hash,
+        "previous_hash": event.previous_hash,
+    }
+    total_nodes = Node.objects.count()
+    approvals=0
+    for peer in get_peers():
+        try:
+            HEADERS = create_consensus_auth_headers(
+                method="POST",
+                path="/api/validate/",
+                body=event_data
+            )
+            response = requests.post(
+                f"{peer.url}/api/validate/",
+                json=event_data,
+                headers=HEADERS,
+                timeout=5
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("approved") and data.get("signature"):
+                    # Keep one vote per validator public key.
+                    votes = [v for v in event.votes if v.get("public_key") != peer.public_key]
+                    votes.append({
+                        "public_key": peer.public_key,
+                        "signature": data["signature"],
+                    })
+                    event.votes = votes
+                    event.save(update_fields=["votes"])
+                # check_majority
+                if event.status != "CONFIRMED":
+                    approvals = count_valid_finalize_signatures(event.hash, event.votes)
+                    if approvals > total_nodes / 2:
+                        confirm_event(event)
+                        
+        except Exception as e:
+            print('Broadcast error:',peer.url,e)
+            continue
+        
+    if approvals > total_nodes / 2:
+        # broadcast_finalization(event):
+        data = {
+            "event_id": str(event.id),
+            "event_hash": event.hash,
+            "signature_list": event.votes,
+        }
+        for peer in get_peers():
+            try:
+                HEADERS = create_consensus_auth_headers(
+                    method="POST",
+                    path="/api/finalize-event/",
+                    body=data
+                )
+                response = requests.post(
+                    f"{peer.url}/api/finalize-event/",
+                    json=data,
+                    headers=HEADERS,
+                    timeout=3
+                )
+                print(peer.url,response.json())
+            except Exception as e:
+                print('Broadcast finalization error:',peer.url,e)
+                continue
+    return Response({"event_id": str(event.id)})
+
 
 @api_view(["POST"])
+@consensus_required
+def validate_event(request):
+    try:
+        event = verify_and_add_event(request.data,request.data['event_id'])
+        return Response({"approved": True,"signature": generate_signature(f"FINALIZE:{event.hash}")})    
+    except Exception as e:
+        return ErrorResponse(str(e))
+
+@api_view(["POST"])
+@consensus_required
 def finalize_event(request):
     event_id = request.data["event_id"]
     event_hash = request.data["event_hash"]

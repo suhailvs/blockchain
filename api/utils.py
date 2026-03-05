@@ -1,5 +1,7 @@
 import json
 import hashlib
+from nacl.encoding import HexEncoder
+from nacl.signing import SigningKey, VerifyKey
 from django.db import transaction
 from django.conf import settings
 
@@ -29,14 +31,6 @@ def confirm_event(event):
     event.save()
     apply_event(event)
 
-def sign_vote(event_hash):
-    from nacl.encoding import HexEncoder
-    from nacl.signing import SigningKey
-    message = f"FINALIZE:{event_hash}"
-    private_key = SigningKey(settings.NODE_PRIVATE_KEY, encoder=HexEncoder)
-    signed = private_key.sign(message.encode())
-    return signed.signature.hex()
-
 def calculate_event_hash(event_id,event, height):
     data = json.dumps({
         "id": str(event_id),
@@ -49,10 +43,12 @@ def calculate_event_hash(event_id,event, height):
     
     return hashlib.sha256(data.encode()).hexdigest()
 
+def generate_signature(message):
+    private_key = SigningKey(settings.NODE_PRIVATE_KEY, encoder=HexEncoder)
+    signed = private_key.sign(message.encode())
+    return signed.signature.hex()
 
 def verify_signature(public_key_hex, signature_hex, payload):
-    from nacl.encoding import HexEncoder
-    from nacl.signing import VerifyKey
     try:
         public_key = VerifyKey(public_key_hex,encoder=HexEncoder)
         if isinstance(payload, str):
@@ -165,7 +161,7 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
             hash=event_hash,
             votes=signature_list if is_sync_blockchain else [{
                 "public_key": Node.objects.get(node_id=settings.LOCAL_NODE_ID).public_key,
-                "signature": sign_vote(event_hash),
+                "signature": generate_signature(f"FINALIZE:{event_hash}"),
             }],
             status=new_status,
         )
