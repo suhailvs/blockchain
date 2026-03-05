@@ -5,9 +5,10 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.decorators import throttle_classes
+from rest_framework.views import APIView
 from .utils import (verify_and_add_event, count_valid_finalize_signatures,
     generate_signature,confirm_event,get_peers)
-from .models import Event,Node
+from .models import Event,Node, ErrorLog
 from .auth import consensus_required, create_consensus_auth_headers
 ErrorResponse = lambda error: Response({"error":error},status=404)
 
@@ -56,61 +57,72 @@ def get_events_after(request):
     ]
     return Response({"events": data})
 
-@api_view(["POST"])
-@throttle_classes([SubmitEventThrottle])
-def submit_event(request):
-    try:
-        event = verify_and_add_event(request.data,str(uuid.uuid4()))
-    except Exception as e:
-        return ErrorResponse(str(e))
-    # broadcast_event
-    event_data = {
-        "event_id": str(event.id),
-        "event_type": event.event_type,
-        "payload": event.payload,
-        "public_key": event.public_key,
-        "signature": event.signature,
-        "hash": event.hash,
-        "previous_hash": event.previous_hash,
-    }
-    total_nodes = Node.objects.count()
-    approvals=0
-    for peer in get_peers():
-        try:
-            HEADERS = create_consensus_auth_headers(
-                method="POST",
-                path="/api/validate/",
-                body=event_data
-            )
-            response = requests.post(
-                f"{peer.url}/api/validate/",
-                json=event_data,
-                headers=HEADERS,
-                timeout=5
-            )
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("approved") and data.get("signature"):
-                    # Keep one vote per validator public key.
-                    votes = [v for v in event.votes if v.get("public_key") != peer.public_key]
-                    votes.append({
-                        "public_key": peer.public_key,
-                        "signature": data["signature"],
-                    })
-                    event.votes = votes
-                    event.save(update_fields=["votes"])
-                # check_majority
-                if event.status != "CONFIRMED":
-                    approvals = count_valid_finalize_signatures(event.hash, event.votes)
-                    if approvals > total_nodes / 2:
-                        confirm_event(event)
-                        
-        except Exception as e:
-            print('Broadcast error:',peer.url,e)
-            continue
+
+class EventSubmissionView(APIView):
+    throttle_classes = [SubmitEventThrottle]
+
+    def get_network_latest(self,local_height):
+        heights = []
+        for peer in get_peers():
+            try:
+                r = requests.get(f"{peer}/", timeout=5)
+                data = r.json()
+                heights.append(data["height"])
+            except Exception as e:
+                ErrorLog.objects.create(text=f'Get peers error for peer {peer.url}/\n\n{e}')
+                continue
+        heights.append(local_height)
+        return heights
+    
+    def broadcast_event(self, event, total_nodes):
+        event_data = {
+            "event_id": str(event.id),
+            "event_type": event.event_type,
+            "payload": event.payload,
+            "public_key": event.public_key,
+            "signature": event.signature,
+            "hash": event.hash,
+            "previous_hash": event.previous_hash,
+        }
         
-    if approvals > total_nodes / 2:
-        # broadcast_finalization(event):
+        approvals=0
+        for peer in get_peers():
+            try:
+                HEADERS = create_consensus_auth_headers(
+                    method="POST",
+                    path="/api/validate/",
+                    body=event_data
+                )
+                response = requests.post(
+                    f"{peer.url}/api/validate/",
+                    json=event_data,
+                    headers=HEADERS,
+                    timeout=5
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("approved") and data.get("signature"):
+                        # Keep one vote per validator public key.
+                        votes = [v for v in event.votes if v.get("public_key") != peer.public_key]
+                        votes.append({
+                            "public_key": peer.public_key,
+                            "signature": data["signature"],
+                        })
+                        event.votes = votes
+                        event.save(update_fields=["votes"])
+                    # check_majority
+                    if event.status != "CONFIRMED":
+                        approvals = count_valid_finalize_signatures(event.hash, event.votes)
+                        if approvals > total_nodes / 2:
+                            confirm_event(event)
+                            
+            except Exception as e:
+                ErrorLog.objects.create(text=f'Broadcast error at peer {peer.url}/api/validate/\n\n{e}')
+                print('Broadcast error:',peer.url,e)
+                continue
+        return approvals
+
+    def broadcast_finalization(self, event):
         data = {
             "event_id": str(event.id),
             "event_hash": event.hash,
@@ -131,9 +143,27 @@ def submit_event(request):
                 )
                 print(peer.url,response.json())
             except Exception as e:
+                ErrorLog.objects.create(text=f'Broadcast finalization error at peer {peer.url}/api/finalize-event/\n\n{e}')
                 print('Broadcast finalization error:',peer.url,e)
                 continue
-    return Response({"event_id": str(event.id)})
+
+    def post(self, request, format=None):
+        local = Event.objects.filter(status="CONFIRMED").order_by("-height").first()
+        heights = self.get_network_latest(local.height)
+        if max(heights) > local.height:
+            # "Node behind. Syncing first."
+            sync_missing_blocks()
+        
+        try:
+            event = verify_and_add_event(request.data,str(uuid.uuid4()))
+        except Exception as e:
+            return ErrorResponse(str(e))
+        total_nodes = Node.objects.count()
+        approvals = self.broadcast_event(event, total_nodes)
+        if approvals > total_nodes / 2:
+            self.broadcast_finalization(event)            
+        return Response({"event_id": str(event.id)})
+      
 
 
 @api_view(["POST"])

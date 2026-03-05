@@ -39,18 +39,23 @@ class Profile(models.Model):
     def __str__(self):
         return f'{self.identity.id}:{self.image_hash[:10]}...'
 
-class KeyPair(models.Model):
-    # this table need to delete, only for testing purpose
-    public_key = models.TextField(unique=True)
-    private_key = models.TextField(unique=True)
-    note = models.CharField(max_length=50, blank=True)
-    def __str__(self):
-        return f'{self.note}:{self.public_key[:5]}...'
-
-
 class Node(models.Model):
     node_id = models.CharField(max_length=100, unique=True)
     public_key = models.TextField()
     url = models.URLField()
     def __str__(self):
         return self.node_id
+
+# These tables need to delete, only for testing purpose
+class KeyPair(models.Model):    
+    public_key = models.TextField(unique=True)
+    private_key = models.TextField(unique=True)
+    note = models.CharField(max_length=50, blank=True)
+    def __str__(self):
+        return f'{self.note}:{self.public_key[:5]}...'
+
+class ErrorLog(models.Model):
+    text = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return self.text.split('\n')[0]

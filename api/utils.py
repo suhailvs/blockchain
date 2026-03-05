@@ -1,11 +1,12 @@
 import json
 import hashlib
+import requests
 from nacl.encoding import HexEncoder
 from nacl.signing import SigningKey, VerifyKey
 from django.db import transaction
 from django.conf import settings
 
-from .models import Event, Identity,Node, Profile
+from .models import Event, Identity,Node, Profile, ErrorLog
 
 def get_peers():
     return Node.objects.exclude(node_id=settings.LOCAL_NODE_ID)
@@ -173,3 +174,37 @@ def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
         identity.nonce = max(identity.nonce, nonce)
         identity.save()
         return event
+
+def sync_events():
+    events_synced = 0
+    for peer in get_peers():
+        while True:
+            # api/events/ only will give 100 events per request so need to run loop
+            last_event = Event.objects.filter(
+                status="CONFIRMED"
+            ).order_by("-height").first()
+            try:
+                response = requests.get(
+                    f"{peer.url}/api/events/",
+                    params={"after_hash": last_event.hash},
+                    timeout=5
+                )
+                if response.status_code != 200:
+                    ErrorLog.objects.create(text=f"Error while syncing peer {peer.url}\n\nStatus Code: {response.status_code}")
+                    break
+                remote_events = response.json().get("events", [])
+                if not remote_events:
+                    # sync completed
+                    break
+                for event_data in remote_events:
+                    if not verify_and_add_event(
+                        event_data,
+                        event_data['id'],
+                        is_sync_blockchain=True,
+                    ):
+                        break  # stop if chain breaks
+                    else:events_synced+=1
+            except Exception as e:
+                ErrorLog.objects.create(text=f'Error syncing from peer {peer.url}/api/events/\n\n{e}')
+                break
+    return events_synced
