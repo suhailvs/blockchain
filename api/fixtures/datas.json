@@ -1,23 +1,5 @@
 [
 {
-    "model": "auth.user",
-    "pk": 1,
-    "fields": {
-        "password": "pbkdf2_sha256$1200000$ZYY8r3U3lvqIXYUJv2srlK$oKqRjrz8MUbdBhCFL7Ocj12XouikTbwicfanPK6HQ6o=",
-        "last_login": null,
-        "is_superuser": true,
-        "username": "a",
-        "first_name": "",
-        "last_name": "",
-        "email": "",
-        "is_staff": true,
-        "is_active": true,
-        "date_joined": "2026-03-03T05:46:37.475Z",
-        "groups": [],
-        "user_permissions": []
-    }
-},
-{
     "model": "api.identity",
     "pk": 1,
     "fields": {
