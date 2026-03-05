@@ -9,6 +9,13 @@ from .models import Event,Node
 
 ErrorResponse = lambda error: Response({"error":error},status=404)
 
+@api_view(["GET"])
+def home(request):
+    last_event = Event.objects.filter(
+        status="CONFIRMED"
+    ).order_by("-height").first()
+    return Response({"height": last_event.height,"hash":last_event.hash})
+
 @api_view(["POST"])
 def submit_event(request):
     try:
@@ -142,3 +149,4 @@ def finalize_event(request):
         return Response({"status": "CONFIRMED"})
 
     return Response({"status": "PENDING", "valid_signatures": valid_signatures}, status=202)
+
