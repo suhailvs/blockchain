@@ -57,5 +57,9 @@ class KeyPair(models.Model):
 class ErrorLog(models.Model):
     text = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
     def __str__(self):
-        return self.text.split('\n')[0]
+        from django.utils import timezone
+        local_time = timezone.localtime(self.created_at)
+        formattedtime = local_time.strftime("%Y-%m-%d %H:%M:%S")
+        return f'{formattedtime} - {self.text.split('\n')[0]}'
