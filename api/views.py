@@ -3,11 +3,17 @@ import uuid
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
+from rest_framework.decorators import throttle_classes
 from .utils import (verify_and_add_event, count_valid_finalize_signatures,
     sign_vote,confirm_event,get_peers)
 from .models import Event,Node
 
 ErrorResponse = lambda error: Response({"error":error},status=404)
+
+
+class GetEventsAfterThrottle(AnonRateThrottle):
+    rate = "10/min"
 
 @api_view(["GET"])
 def home(request):
@@ -92,7 +98,9 @@ def validate_event(request):
         return ErrorResponse(str(e))
 
 @api_view(["GET"])
+@throttle_classes([GetEventsAfterThrottle])
 def get_events_after(request):
+    LIMIT = 100
     after_hash = request.GET.get("after_hash")
     if not after_hash:
         return ErrorResponse("after_hash required")
@@ -116,7 +124,7 @@ def get_events_after(request):
             "hash": e.hash,
             "votes": e.votes,
         }
-        for e in events
+        for e in events[:LIMIT]
     ]
     return Response({"events": data})
 
@@ -149,4 +157,3 @@ def finalize_event(request):
         return Response({"status": "CONFIRMED"})
 
     return Response({"status": "PENDING", "valid_signatures": valid_signatures}, status=202)
-

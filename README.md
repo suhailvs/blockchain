@@ -43,3 +43,7 @@ uncomment `ed25519_key_from_mnemonic()` in `t.py`, then run:
 ```
 $ python t.py
 ```
+
+# TODO
+
++ (i didn't thinked about it much just a quick thougt)what if transaction validation while syncing peers, the balance will not match
