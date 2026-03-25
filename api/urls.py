@@ -1,9 +1,9 @@
 from django.urls import path
-from .views import EventSubmissionView, get_events_after,validate_event,finalize_event
+from .views import TransactionSubmissionView, get_transactions_after, validate_transaction, finalize_transaction
 
 urlpatterns = [
-    path("events/", get_events_after),
-    path("submit/", EventSubmissionView.as_view()),
-    path("validate/", validate_event),
-    path("finalize-event/", finalize_event),    
+    path("transactions/", get_transactions_after),
+    path("submit/", TransactionSubmissionView.as_view()),
+    path("validate/", validate_transaction),
+    path("finalize-transaction/", finalize_transaction),    
 ]

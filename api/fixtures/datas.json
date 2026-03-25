@@ -22,8 +22,17 @@
     "pk": 1,
     "fields": {
         "public_key": "b75ec7154c3f830b093e87c7b8145db809c63e5890b3964e83bdb5a26b5db58d",
-        "created_at": "2026-03-03T03:07:38.400Z",
-        "nonce": 0
+        "balance":0,
+        "is_active":true
+    }
+},
+{
+    "model": "api.identity",
+    "pk": 2,
+    "fields": {
+        "public_key": "9692355f209282a3d5e34bd34207df8db87c5d96f4f58a44883bbd0d9d9222fa",
+        "balance":0,
+        "is_active":true
     }
 },
 {
@@ -59,7 +68,16 @@
     "fields": {
         "public_key": "b75ec7154c3f830b093e87c7b8145db809c63e5890b3964e83bdb5a26b5db58d",
         "private_key": "b9aef0880ccd51973cba5335232c8199a63055a961cb82a0f205e8013c39f146",
-        "note": "identity"
+        "note": "identity1 sender"
+    }
+},
+{
+    "model": "api.keypair",
+    "pk": 5,
+    "fields": {
+        "public_key": "9692355f209282a3d5e34bd34207df8db87c5d96f4f58a44883bbd0d9d9222fa",
+        "private_key": "8d07722263ef974981f1f36a5d7b32c7f2e31d1b33fbdf6b0c91ed8be68fd94b",
+        "note": "identity2 receiver"
     }
 },
 {
