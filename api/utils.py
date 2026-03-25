@@ -5,41 +5,47 @@ from nacl.encoding import HexEncoder
 from nacl.signing import SigningKey, VerifyKey
 from django.db import transaction
 from django.conf import settings
-
-from .models import Event, Identity,Node, Profile, ErrorLog
+from django.db.models import F
+from .models import Transaction, Identity,Node, ErrorLog
 
 def get_peers():
     return Node.objects.exclude(node_id=settings.LOCAL_NODE_ID)
 
-def apply_event(event):
-    if event.event_type == "update_profile_image":
-        identity= Identity.objects.get(public_key=event.public_key)
-        profile, created = Profile.objects.get_or_create(identity=identity)
-        profile.image_hash = event.payload["image_hash"]
-        profile.save()
-    elif event.event_type == "TRANSFER":
-        # sender = event.payload["sender"]
-        # receiver = event.payload["receiver"]
-        # amount = event.payload["amount"]
-        print('transfer')
+def apply_transaction(tx):
+    print('-'*40)
+    print('APPLY TRANSACTION')
+    print('-'*40)
+    if tx.tx_type == 1:#"register"
+        identity = Identity.objects.create(public_key=tx.public_key)
+        print('New user created:',identity)
 
-def confirm_event(event):
-    if Event.objects.filter(height=event.height, status="CONFIRMED").exists():
-        # reject_this_event
-        event.status = "REJECTED"
+    elif tx.tx_type == 2: # "transfer"
+        sender = Identity.objects.get(public_key=tx.public_key)        
+        sender.balance = F('balance') - tx.amount        
+        # sender.nonce = max(sender.nonce, nonce)
+        sender.save()
+
+        receiver = Identity.objects.get(public_key=tx.receiver_pubkey)
+        receiver.balance = F('balance') + tx.amount
+        receiver.save()
+
+def confirm_transaction(txn):
+    if Transaction.objects.filter(height=txn.height, status="CONFIRMED").exists():
+        # reject_this_transaction
+        txn.status = "REJECTED"
     else:
-        event.status = "CONFIRMED"
-    event.save()
-    apply_event(event)
+        txn.status = "CONFIRMED"
+    txn.save()
+    apply_transaction(txn)
 
-def calculate_event_hash(event_id,event, height):
+def calculate_transaction_hash(txn):
     data = json.dumps({
-        "id": str(event_id),
-        "event_type": event['event_type'],
-        "payload": event['payload'],
-        "height": height,
-        "public_key": event['public_key'],
-        "previous_hash": event['previous_hash'],
+        "tx_type": txn["tx_type"],
+        "public_key": txn['public_key'],
+        "receiver_pubkey": txn.get('receiver_pubkey'),
+        "amount": txn['amount'],
+        "height": txn['height'],
+        "previous_hash": txn['previous_hash'],
     }, sort_keys=True)
     
     return hashlib.sha256(data.encode()).hexdigest()
@@ -68,7 +74,7 @@ def verify_signature(public_key_hex, signature_hex, payload):
         print('='*50)
         return False
 
-def count_valid_finalize_signatures(event_hash, signature_list):
+def count_valid_finalize_signatures(txn_hash, signature_list):
     valid_signatures = 0
     in_valid_signatures = 0
     seen_keys = set()
@@ -86,7 +92,7 @@ def count_valid_finalize_signatures(event_hash, signature_list):
         if not Node.objects.filter(public_key=public_key).exists():
             continue
 
-        if verify_signature(public_key, vote_signature, f"FINALIZE:{event_hash}"):
+        if verify_signature(public_key, vote_signature, f"FINALIZE:{txn_hash}"):
             valid_signatures += 1
             seen_keys.add(public_key)
         else:
@@ -95,116 +101,108 @@ def count_valid_finalize_signatures(event_hash, signature_list):
     return valid_signatures
     
 
-def verify_and_add_event(event_data, event_id, is_sync_blockchain=False):
+def verify_and_add_transaction(txn_data, is_sync_blockchain=False):
     with transaction.atomic():
-        public_key = event_data["public_key"]
-        signature = event_data["signature"]
-        payload = event_data["payload"]
-        event_type = event_data["event_type"]
-        previous_hash = event_data["previous_hash"]
-        nonce = payload.get("nonce")
-        # Verify identity exists
-        identity = Identity.objects.select_for_update().get(public_key=public_key)
-        # Prevent replay attack for live submissions.
-        if not is_sync_blockchain and nonce <= identity.nonce:
-            raise Exception(f"Replay attack detected. Nonce:{nonce}, Identity nonce:{identity.nonce}")
+        tx_type = txn_data["tx_type"]
+        public_key = txn_data["public_key"]
+        signature = txn_data["signature"]
+        previous_hash = txn_data["previous_hash"]
+        receiver_pubkey = txn_data.get("receiver_pubkey")
+        amount = txn_data["amount"]
+        height = txn_data["height"]        
+
+        if tx_type not in dict(Transaction.TX_TYPE_CHOICES):
+            raise Exception("Invalid tx_type")
+        if tx_type == 1:
+            if Identity.objects.filter(public_key=public_key):
+                raise Exception("User Already exists.")
         # Verify signature
         signed_payload = {
-            "event_type": event_type,
-            "payload": payload,
+            "tx_type": tx_type,
+            "public_key": public_key,
+            "receiver_pubkey": receiver_pubkey,
+            "amount": amount,
+            "height": height,
             "previous_hash": previous_hash,
-        }        
+        }
         if not verify_signature(public_key, signature, signed_payload):
             raise Exception("Invalid signature")
-        last_event = Event.objects.filter(
+        last_txn = Transaction.objects.filter(
             status="CONFIRMED"
         ).order_by("-height").first()
 
-        if event_data["previous_hash"] != last_event.hash:
+        if txn_data["previous_hash"] != last_txn.hash:
             raise Exception("Previous Hash doesn't match")
 
+        if height != last_txn.height + 1:
+            raise Exception("Replay attack detected or invalid height.")
+        
+        txn_hash = calculate_transaction_hash(txn_data)
+
+        if Transaction.objects.filter(hash=txn_hash).exists():
+            raise Exception("Duplicate transaction")
+
         if is_sync_blockchain:
-            signature_list = event_data.get("signature_list", event_data.get("votes", []))
-            new_height = event_data["height"]
-            expected_height = last_event.height + 1
-            if new_height != expected_height:
-                raise Exception("Invalid height during sync")
-
-            expected_hash = calculate_event_hash(event_id, event_data, height=new_height)
-            if event_data["hash"] != expected_hash:
-                raise Exception("Invalid event hash during sync")
-
-            event_hash = expected_hash
-            valid_signatures = count_valid_finalize_signatures(event_hash, signature_list)
-            # TODO: While sync blockchain, for old events there may be less total nodes
-            # ie new nodes might be added in future            
-            if valid_signatures <= Node.objects.count() / 2:
-                raise Exception("Insufficient valid EventVote signatures")
+            expected_hash = txn_hash
+            if txn_data["hash"] != expected_hash:
+                raise Exception("Invalid transaction hash during sync")
             new_status = "CONFIRMED"
+            votes = []
         else:
-            last_event = Event.objects.filter(
-                status="CONFIRMED"
-            ).order_by("-height").first()
-            new_height = last_event.height + 1
-            
-            event_hash = calculate_event_hash(event_id,event_data,height=new_height)
             new_status = "PENDING"
+            votes = [{
+                "public_key": Node.objects.get(node_id=settings.LOCAL_NODE_ID).public_key,
+                "signature": generate_signature(f"FINALIZE:{txn_hash}"),
+            }]
 
-        # Store immutable event
-        event = Event.objects.create(
-            id=event_id,
-            height=new_height,
-            event_type=event_type,
-            payload=payload,
+        # Store immutable transaction
+        txn = Transaction.objects.create(
+            hash=txn_hash,
+            height=height,
+            tx_type=tx_type,
             public_key=public_key,
+            receiver_pubkey=receiver_pubkey,
+            amount=amount,
             signature=signature,
             previous_hash=previous_hash,
-            hash=event_hash,
-            votes=signature_list if is_sync_blockchain else [{
-                "public_key": Node.objects.get(node_id=settings.LOCAL_NODE_ID).public_key,
-                "signature": generate_signature(f"FINALIZE:{event_hash}"),
-            }],
+            votes=votes,
             status=new_status,
         )
 
         if is_sync_blockchain:
-            apply_event(event)
+            apply_transaction(txn)
         
-        # Update nonce
-        identity.nonce = max(identity.nonce, nonce)
-        identity.save()
-        return event
+        return txn
 
-def sync_events():
-    events_synced = 0
+def sync_transactions():
+    txns_synced = 0
     for peer in get_peers():
         while True:
-            # api/events/ only will give 100 events per request so need to run loop
-            last_event = Event.objects.filter(
+            # api/transactions/ only will give 100 transactions per request so need to run loop
+            last_txn = Transaction.objects.filter(
                 status="CONFIRMED"
             ).order_by("-height").first()
             try:
                 response = requests.get(
-                    f"{peer.url}/api/events/",
-                    params={"after_hash": last_event.hash},
+                    f"{peer.url}/api/transactions/",
+                    params={"after_hash": last_txn.hash},
                     timeout=5
                 )
                 if response.status_code != 200:
                     ErrorLog.objects.create(text=f"Error while syncing peer {peer.url}\n\nStatus Code: {response.status_code}")
                     break
-                remote_events = response.json().get("events", [])
-                if not remote_events:
+                remote_txns = response.json().get("transactions", [])
+                if not remote_txns:
                     # sync completed
                     break
-                for event_data in remote_events:
-                    if not verify_and_add_event(
-                        event_data,
-                        event_data['id'],
+                for txn_data in remote_txns:
+                    if not verify_and_add_transaction(
+                        txn_data,
                         is_sync_blockchain=True,
                     ):
                         break  # stop if chain breaks
-                    else:events_synced+=1
+                    else:txns_synced+=1
             except Exception as e:
-                ErrorLog.objects.create(text=f'Error syncing from peer {peer.url}/api/events/\n\n{e}')
+                ErrorLog.objects.create(text=f'Error syncing from peer {peer.url}/api/transactions/\n\n{e}')
                 break
-    return events_synced
+    return txns_synced
